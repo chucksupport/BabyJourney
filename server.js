@@ -136,13 +136,17 @@ app.get('/', requireViewer, (_req, res) => {
   const milestones = db.getMilestonesByCategory();
   const settings = db.getSettings();
   const ageInfo = getAgeInfo(settings);
-  res.render('index', { updates, pinned, latestVitals, vitals, milestones, ageInfo });
+  const updateIds = updates.map(u => u.id);
+  if (pinned && !updateIds.includes(pinned.id)) updateIds.push(pinned.id);
+  const photosMap = db.getPhotosForUpdates(updateIds);
+  res.render('index', { updates, pinned, latestVitals, vitals, milestones, ageInfo, photosMap });
 });
 
 app.get('/update/:id', requireViewer, (req, res) => {
   const update = db.getUpdate(req.params.id);
   if (!update) return res.status(404).render('404');
-  res.render('update', { update });
+  const photos = db.getUpdatePhotos(update.id);
+  res.render('update', { update, photos });
 });
 
 app.get('/milestones', requireViewer, (_req, res) => {
@@ -215,27 +219,41 @@ app.get('/admin', requireAuth, (_req, res) => {
 
 // Updates
 app.get('/admin/new', requireAuth, (_req, res) => {
-  res.render('admin/editor', { update: null });
+  res.render('admin/editor', { update: null, photos: [] });
 });
 
-app.post('/admin/new', requireAuth, upload.single('photo'), (req, res) => {
+app.post('/admin/new', requireAuth, upload.array('photos', 20), (req, res) => {
   const { title, content, sentiment, update_date } = req.body;
-  const photo = req.file ? '/uploads/' + req.file.filename : null;
-  db.createUpdate({ title, content, sentiment: parseInt(sentiment) || 5, photo, update_date });
+  const photo = req.files && req.files.length ? '/uploads/' + req.files[0].filename : null;
+  const result = db.createUpdate({ title, content, sentiment: parseInt(sentiment) || 5, photo, update_date });
+  if (req.files && req.files.length) {
+    const photoPaths = req.files.map(f => '/uploads/' + f.filename);
+    db.addUpdatePhotos(result.lastInsertRowid, photoPaths);
+  }
   res.redirect('/admin');
 });
 
 app.get('/admin/edit/:id', requireAuth, (req, res) => {
   const update = db.getUpdate(req.params.id);
   if (!update) return res.status(404).render('404');
-  res.render('admin/editor', { update });
+  const photos = db.getUpdatePhotos(update.id);
+  res.render('admin/editor', { update, photos });
 });
 
-app.post('/admin/edit/:id', requireAuth, upload.single('photo'), (req, res) => {
+app.post('/admin/edit/:id', requireAuth, upload.array('photos', 20), (req, res) => {
   const { title, content, sentiment, update_date } = req.body;
-  const photo = req.file ? '/uploads/' + req.file.filename : null;
+  const photo = req.files && req.files.length ? '/uploads/' + req.files[0].filename : null;
   db.editUpdate(req.params.id, { title, content, sentiment: parseInt(sentiment) || 5, photo, update_date });
+  if (req.files && req.files.length) {
+    const photoPaths = req.files.map(f => '/uploads/' + f.filename);
+    db.addUpdatePhotos(req.params.id, photoPaths);
+  }
   res.redirect('/admin');
+});
+
+app.post('/admin/photo/delete/:id', requireAuth, (req, res) => {
+  db.deleteUpdatePhoto(req.params.id);
+  res.redirect('back');
 });
 
 app.post('/admin/delete/:id', requireAuth, (req, res) => {

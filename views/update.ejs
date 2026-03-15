@@ -11,7 +11,15 @@
 
     <h1><%= update.title %></h1>
 
-    <% if (update.photo) { %>
+    <% if (photos && photos.length > 0) { %>
+    <div class="update-photos-gallery">
+      <% photos.forEach(function(p) { %>
+      <div class="update-photo full">
+        <img src="<%= p.photo %>" alt="<%= update.title %>">
+      </div>
+      <% }); %>
+    </div>
+    <% } else if (update.photo) { %>
     <div class="update-photo full">
       <img src="<%= update.photo %>" alt="<%= update.title %>">
     </div>

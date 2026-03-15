@@ -31,12 +31,18 @@
     </div>
 
     <div class="form-group">
-      <label for="photo">Photo (optional)</label>
-      <input type="file" id="photo" name="photo" accept="image/*">
-      <% if (update && update.photo) { %>
-        <div class="current-photo">
-          <p>Current photo:</p>
-          <img src="<%= update.photo %>" alt="Current photo" style="max-width: 200px; border-radius: 8px;">
+      <label for="photos">Photos (optional)</label>
+      <input type="file" id="photos" name="photos" accept="image/*" multiple>
+      <% if (photos && photos.length > 0) { %>
+        <div class="current-photos" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem;">
+          <% photos.forEach(function(p) { %>
+            <div style="position: relative;">
+              <img src="<%= p.photo %>" alt="Photo" style="max-width: 150px; border-radius: 8px;">
+              <form method="POST" action="/admin/photo/delete/<%= p.id %>" style="position: absolute; top: 4px; right: 4px;">
+                <button type="submit" style="background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; line-height: 1;">&times;</button>
+              </form>
+            </div>
+          <% }); %>
         </div>
       <% } %>
     </div>

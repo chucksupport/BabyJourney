@@ -177,7 +177,10 @@
       <time><%= new Date(pinned.update_date || pinned.created_at).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) %></time>
     </div>
     <h2><a href="/update/<%= pinned.id %>"><%= pinned.title %></a></h2>
-    <% if (pinned.photo) { %>
+    <% const pinnedPhotos = photosMap[pinned.id] || []; %>
+    <% if (pinnedPhotos.length > 0) { %>
+    <div class="update-photo"><img src="<%= pinnedPhotos[0].photo %>" alt="<%= pinned.title %>" loading="lazy"></div>
+    <% } else if (pinned.photo) { %>
     <div class="update-photo"><img src="<%= pinned.photo %>" alt="<%= pinned.title %>" loading="lazy"></div>
     <% } %>
     <div class="update-preview"><%- pinned.content.substring(0, 300).replace(/\n/g, '<br>') %><%= pinned.content.length > 300 ? '...' : '' %></div>
@@ -200,7 +203,10 @@
           <time><%= new Date(update.update_date || update.created_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></time>
         </div>
         <h3><a href="/update/<%= update.id %>"><%= update.title %></a></h3>
-        <% if (update.photo) { %>
+        <% const updatePhotos = photosMap[update.id] || []; %>
+        <% if (updatePhotos.length > 0) { %>
+        <div class="update-photo"><img src="<%= updatePhotos[0].photo %>" alt="<%= update.title %>" loading="lazy"></div>
+        <% } else if (update.photo) { %>
         <div class="update-photo"><img src="<%= update.photo %>" alt="<%= update.title %>" loading="lazy"></div>
         <% } %>
         <div class="update-preview"><%- update.content.substring(0, 200).replace(/\n/g, '<br>') %><%= update.content.length > 200 ? '...' : '' %></div>

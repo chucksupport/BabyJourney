@@ -50,6 +50,15 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS update_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    update_id INTEGER NOT NULL,
+    photo TEXT NOT NULL,
+    sort_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (update_id) REFERENCES updates(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -100,6 +109,26 @@ try {
   db.prepare('SELECT blood_pressure FROM vitals LIMIT 1').get();
 } catch {
   db.exec('ALTER TABLE vitals ADD COLUMN blood_pressure TEXT');
+}
+
+// Migrate: move existing single photo column data into update_photos table
+try {
+  const photosTableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='update_photos'").get();
+  if (photosTableExists) {
+    const migratedCheck = db.prepare("SELECT COUNT(*) as count FROM update_photos").get();
+    if (migratedCheck.count === 0) {
+      const updatesWithPhotos = db.prepare("SELECT id, photo FROM updates WHERE photo IS NOT NULL AND photo != ''").all();
+      if (updatesWithPhotos.length > 0) {
+        const insertPhoto = db.prepare('INSERT INTO update_photos (update_id, photo, sort_order) VALUES (?, ?, 0)');
+        const tx = db.transaction(() => {
+          for (const u of updatesWithPhotos) insertPhoto.run(u.id, u.photo);
+        });
+        tx();
+      }
+    }
+  }
+} catch (e) {
+  console.error('Photo migration error:', e.message);
 }
 
 // Seed default milestones if empty
@@ -207,7 +236,38 @@ module.exports = {
   },
 
   deleteUpdate(id) {
+    db.prepare('DELETE FROM update_photos WHERE update_id = ?').run(id);
     return db.prepare('DELETE FROM updates WHERE id = ?').run(id);
+  },
+
+  // Update Photos
+  getUpdatePhotos(updateId) {
+    return db.prepare('SELECT * FROM update_photos WHERE update_id = ? ORDER BY sort_order ASC, id ASC').all(updateId);
+  },
+
+  getPhotosForUpdates(updateIds) {
+    if (!updateIds.length) return {};
+    const placeholders = updateIds.map(() => '?').join(',');
+    const rows = db.prepare(`SELECT * FROM update_photos WHERE update_id IN (${placeholders}) ORDER BY sort_order ASC, id ASC`).all(...updateIds);
+    const grouped = {};
+    for (const row of rows) {
+      if (!grouped[row.update_id]) grouped[row.update_id] = [];
+      grouped[row.update_id].push(row);
+    }
+    return grouped;
+  },
+
+  addUpdatePhotos(updateId, photoPaths) {
+    const maxOrder = db.prepare('SELECT COALESCE(MAX(sort_order), -1) as max_order FROM update_photos WHERE update_id = ?').get(updateId).max_order;
+    const insert = db.prepare('INSERT INTO update_photos (update_id, photo, sort_order) VALUES (?, ?, ?)');
+    const tx = db.transaction(() => {
+      photoPaths.forEach((p, i) => insert.run(updateId, p, maxOrder + 1 + i));
+    });
+    tx();
+  },
+
+  deleteUpdatePhoto(photoId) {
+    return db.prepare('DELETE FROM update_photos WHERE id = ?').run(photoId);
   },
 
   pinUpdate(id) {
