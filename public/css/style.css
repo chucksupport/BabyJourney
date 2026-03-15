@@ -118,12 +118,12 @@ nav {
 }
 
 .logo-icon {
-  width: 1.6rem;
+  width: 2.8rem;
   height: auto;
   display: inline-block;
 }
 
-.logo span { color: var(--rose-400); }
+.logo-text span { color: var(--rose-400); }
 .logo:hover { color: var(--gray-900); }
 
 .nav-links {
