@@ -210,6 +210,16 @@ module.exports = {
     return db.prepare('SELECT * FROM updates WHERE id = ?').get(id);
   },
 
+  getAdjacentUpdates(updateDate, id) {
+    const prev = db.prepare(
+      'SELECT id, title FROM updates WHERE update_date < ? OR (update_date = ? AND id < ?) ORDER BY update_date DESC, id DESC LIMIT 1'
+    ).get(updateDate, updateDate, id);
+    const next = db.prepare(
+      'SELECT id, title FROM updates WHERE update_date > ? OR (update_date = ? AND id > ?) ORDER BY update_date ASC, id ASC LIMIT 1'
+    ).get(updateDate, updateDate, id);
+    return { prev, next };
+  },
+
   getPinnedUpdate() {
     return db.prepare('SELECT * FROM updates WHERE pinned = 1 ORDER BY updated_at DESC LIMIT 1').get();
   },

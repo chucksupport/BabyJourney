@@ -197,7 +197,7 @@
   <div class="updates-list">
     <% updates.forEach(function(update) { %>
       <% if (!pinned || update.id !== pinned.id) { %>
-      <article class="update-card">
+      <article class="update-card" id="update-<%= update.id %>">
         <div class="update-meta">
           <span class="mood mood-<%= update.mood %>"><%= update.mood === 'great' ? 'Great day' : update.mood === 'good' ? 'Good day' : 'Tough day' %></span>
           <time><%= new Date(update.update_date || update.created_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></time>

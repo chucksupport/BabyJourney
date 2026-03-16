@@ -1,7 +1,7 @@
 <%- include('partials/head', { pageTitle: update.title }) %>
 
 <section class="single-update">
-  <a href="/" class="back-link">&larr; Back to all updates</a>
+  <a href="/#update-<%= update.id %>" class="back-link">&larr; Back to all updates</a>
 
   <article>
     <div class="update-meta">
@@ -29,6 +29,25 @@
       <%- update.content.replace(/\n/g, '<br>') %>
     </div>
   </article>
+
+  <nav class="update-nav">
+    <% if (prev) { %>
+      <a href="/update/<%= prev.id %>" class="update-nav-link prev">
+        <span class="update-nav-label">&larr; Previous day</span>
+        <span class="update-nav-title"><%= prev.title %></span>
+      </a>
+    <% } else { %>
+      <span class="update-nav-link disabled"></span>
+    <% } %>
+    <% if (next) { %>
+      <a href="/update/<%= next.id %>" class="update-nav-link next">
+        <span class="update-nav-label">Next day &rarr;</span>
+        <span class="update-nav-title"><%= next.title %></span>
+      </a>
+    <% } else { %>
+      <span class="update-nav-link disabled"></span>
+    <% } %>
+  </nav>
 </section>
 
 <%- include('partials/footer') %>

@@ -146,7 +146,8 @@ app.get('/update/:id', requireViewer, (req, res) => {
   const update = db.getUpdate(req.params.id);
   if (!update) return res.status(404).render('404');
   const photos = db.getUpdatePhotos(update.id);
-  res.render('update', { update, photos });
+  const { prev, next } = db.getAdjacentUpdates(update.update_date, update.id);
+  res.render('update', { update, photos, prev, next });
 });
 
 app.get('/milestones', requireViewer, (_req, res) => {

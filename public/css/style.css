@@ -989,6 +989,49 @@ nav {
 
 .update-content p { margin-bottom: 1rem; }
 
+/* Update navigation */
+.update-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+.update-nav-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-xs);
+  text-decoration: none;
+  transition: background 0.15s;
+  max-width: 50%;
+}
+
+.update-nav-link.prev { align-items: flex-start; }
+.update-nav-link.next { align-items: flex-end; margin-left: auto; }
+.update-nav-link.disabled { visibility: hidden; }
+
+.update-nav-link:hover { background: var(--rose-50); }
+
+.update-nav-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--rose-500);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.update-nav-title {
+  font-size: 0.95rem;
+  color: var(--gray-700);
+  line-height: 1.3;
+}
+
+.update-nav-link:hover .update-nav-title { color: var(--gray-900); }
+
 /* ============ BUTTONS ============ */
 .btn {
   display: inline-block;
