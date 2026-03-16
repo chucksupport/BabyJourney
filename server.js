@@ -6,6 +6,11 @@ const path = require('path');
 const fs = require('fs');
 const db = require('./db');
 
+function celsiusToFahrenheit(c) {
+  if (c == null || c === '') return null;
+  return +(parseFloat(c) * 9 / 5 + 32).toFixed(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -288,7 +293,7 @@ app.post('/admin/vitals', requireAuth, (req, res) => {
     heart_rate: req.body.heart_rate,
     respiratory_rate: req.body.respiratory_rate,
     oxygen_saturation: req.body.oxygen_saturation,
-    temperature: req.body.temperature,
+    temperature: celsiusToFahrenheit(req.body.temperature),
     blood_pressure: req.body.blood_pressure,
     fio2: req.body.fio2,
     respiratory_support: req.body.respiratory_support,
@@ -317,7 +322,7 @@ app.post('/admin/vitals/edit/:id', requireAuth, (req, res) => {
     heart_rate: req.body.heart_rate,
     respiratory_rate: req.body.respiratory_rate,
     oxygen_saturation: req.body.oxygen_saturation,
-    temperature: req.body.temperature,
+    temperature: celsiusToFahrenheit(req.body.temperature),
     blood_pressure: req.body.blood_pressure,
     fio2: req.body.fio2,
     respiratory_support: req.body.respiratory_support,
