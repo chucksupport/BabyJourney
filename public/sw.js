@@ -1,4 +1,4 @@
-const CACHE_NAME = 'myla-fyi-v1';
+const CACHE_NAME = 'myla-fyi-v2';
 const OFFLINE_URL = '/';
 
 // Cache essential assets on install
