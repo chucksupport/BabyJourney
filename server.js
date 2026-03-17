@@ -4,7 +4,19 @@ const SQLiteStore = require('connect-sqlite3')(session);
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const webpush = require('web-push');
 const db = require('./db');
+
+// Web Push (VAPID) configuration
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:myla@myla.fyi',
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+  );
+}
 
 function celsiusToFahrenheit(c) {
   if (c == null || c === '') return null;
@@ -74,6 +86,7 @@ app.use((req, res, next) => {
   res.locals.authenticated = req.session && req.session.authenticated;
   res.locals.viewer = req.session && (req.session.viewer || req.session.authenticated);
   res.locals.settings = db.getSettings();
+  res.locals.vapidPublicKey = VAPID_PUBLIC_KEY;
   next();
 });
 
@@ -236,6 +249,13 @@ app.post('/admin/new', requireAuth, upload.array('photos', 20), (req, res) => {
     const photoPaths = req.files.map(f => '/uploads/' + f.filename);
     db.addUpdatePhotos(result.lastInsertRowid, photoPaths);
   }
+  // Send push notification for the new update
+  const snippet = content.substring(0, 100).replace(/\n/g, ' ') + (content.length > 100 ? '...' : '');
+  sendPushNotifications(
+    'New Update: ' + title,
+    snippet,
+    '/update/' + result.lastInsertRowid
+  );
   res.redirect('/admin');
 });
 
@@ -385,6 +405,39 @@ app.post('/admin/settings', requireAuth, (req, res) => {
   }
   res.redirect('/admin/settings');
 });
+
+// ============ PUSH NOTIFICATIONS ============
+
+// Subscribe to push notifications
+app.post('/api/push/subscribe', requireViewer, (req, res) => {
+  const { endpoint, keys } = req.body;
+  if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
+    return res.status(400).json({ error: 'Invalid subscription' });
+  }
+  db.savePushSubscription(endpoint, keys.p256dh, keys.auth);
+  res.json({ success: true });
+});
+
+// Send push notification to all subscribers (called internally)
+function sendPushNotifications(title, body, url) {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+
+  const subscriptions = db.getAllPushSubscriptions();
+  const payload = JSON.stringify({ title, body, url, tag: 'myla-update-' + Date.now() });
+
+  for (const sub of subscriptions) {
+    const pushSub = {
+      endpoint: sub.endpoint,
+      keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth }
+    };
+    webpush.sendNotification(pushSub, payload).catch((err) => {
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        // Subscription expired or unsubscribed — clean up
+        db.deletePushSubscription(sub.endpoint);
+      }
+    });
+  }
+}
 
 // 404
 app.use((_req, res) => {

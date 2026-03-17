@@ -1,0 +1,24 @@
+{
+  "name": "Myla.fyi - Follow Myla's Journey",
+  "short_name": "Myla.fyi",
+  "description": "Follow Myla's NICU journey - born early, growing strong.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#e44b6a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/images/white-footprint.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/white-footprint.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

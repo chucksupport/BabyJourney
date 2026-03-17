@@ -1413,3 +1413,53 @@ footer strong { color: var(--rose-400); font-weight: 700; }
 
   .ekg-container { padding: 1rem; }
 }
+
+/* ============ NOTIFICATION BANNER ============ */
+.notif-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 300;
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  background: linear-gradient(to top, rgba(15, 17, 23, 0.95), rgba(15, 17, 23, 0.85));
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--card-border);
+  animation: notifSlideUp 0.4s ease;
+}
+
+@keyframes notifSlideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.notif-banner-inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 600px;
+  width: 100%;
+}
+
+.notif-banner-inner p {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  flex: 1;
+}
+
+.notif-banner-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .notif-banner-inner {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+}

@@ -2,6 +2,68 @@
   <footer>
     <p>Made with love for <strong><%= settings.baby_name || 'Myla' %></strong></p>
   </footer>
+
+  <div id="notifBanner" class="notif-banner" style="display:none">
+    <div class="notif-banner-inner">
+      <p>Get notified when new updates are posted</p>
+      <div class="notif-banner-actions">
+        <button id="notifAllow" class="btn btn-primary btn-small">Enable Notifications</button>
+        <button id="notifDismiss" class="btn btn-outline btn-small">Not now</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/app.js"></script>
+  <script>
+  // Service Worker + Push Notification registration
+  (function() {
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.register('/sw.js');
+
+    // Don't show notification prompt on admin or login pages
+    if (window.location.pathname.startsWith('/admin') || window.location.pathname === '/login') return;
+    if (!('PushManager' in window)) return;
+
+    // Check if already subscribed or dismissed
+    const dismissed = localStorage.getItem('notif-dismissed');
+    if (dismissed && (Date.now() - parseInt(dismissed)) < 7 * 24 * 60 * 60 * 1000) return;
+
+    navigator.serviceWorker.ready.then(function(reg) {
+      reg.pushManager.getSubscription().then(function(sub) {
+        if (sub) return; // Already subscribed
+        // Show the banner after a short delay
+        setTimeout(function() {
+          document.getElementById('notifBanner').style.display = 'flex';
+        }, 3000);
+      });
+    });
+
+    document.getElementById('notifAllow').addEventListener('click', function() {
+      Notification.requestPermission().then(function(permission) {
+        if (permission !== 'granted') return;
+        navigator.serviceWorker.ready.then(function(reg) {
+          reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: '<%= typeof vapidPublicKey !== "undefined" ? vapidPublicKey : "" %>'
+          }).then(function(sub) {
+            // Send subscription to server
+            fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(sub.toJSON())
+            });
+            document.getElementById('notifBanner').style.display = 'none';
+          });
+        });
+      });
+    });
+
+    document.getElementById('notifDismiss').addEventListener('click', function() {
+      localStorage.setItem('notif-dismissed', Date.now().toString());
+      document.getElementById('notifBanner').style.display = 'none';
+    });
+  })();
+  </script>
 </body>
 </html>
