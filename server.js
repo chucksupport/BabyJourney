@@ -35,9 +35,22 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Build version for cache-busting static assets (changes on each server start)
+const BUILD_VERSION = Date.now().toString(36);
+app.use((req, res, next) => {
+  res.locals.buildVersion = BUILD_VERSION;
+  next();
+});
+
+// Serve sw.js with no-store so browsers (especially Safari) always check for updates
+app.get('/sw.js', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
+
 // Static files - serve uploads from persistent disk, rest from public/
-app.use('/uploads', express.static(uploadsDir));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(uploadsDir, { maxAge: '7d' }));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
