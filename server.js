@@ -418,6 +418,14 @@ app.post('/api/push/subscribe', requireViewer, (req, res) => {
   res.json({ success: true });
 });
 
+// Unsubscribe from push notifications
+app.post('/api/push/unsubscribe', requireViewer, (req, res) => {
+  const { endpoint } = req.body;
+  if (!endpoint) return res.status(400).json({ error: 'Missing endpoint' });
+  db.deletePushSubscription(endpoint);
+  res.json({ success: true });
+});
+
 // Send push notification to all subscribers (called internally)
 function sendPushNotifications(title, body, url) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;

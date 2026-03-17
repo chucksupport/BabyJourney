@@ -21,47 +21,102 @@
 
     navigator.serviceWorker.register('/sw.js');
 
-    // Don't show notification prompt on admin or login pages
-    if (window.location.pathname.startsWith('/admin') || window.location.pathname === '/login') return;
+    var isLoginOrAdmin = window.location.pathname.startsWith('/admin') || window.location.pathname === '/login';
     if (!('PushManager' in window)) return;
 
-    // Check if already subscribed or dismissed
-    const dismissed = localStorage.getItem('notif-dismissed');
-    if (dismissed && (Date.now() - parseInt(dismissed)) < 7 * 24 * 60 * 60 * 1000) return;
+    var vapidKey = '<%= typeof vapidPublicKey !== "undefined" ? vapidPublicKey : "" %>';
+    var toggle = document.getElementById('notifToggle');
+    var dot = document.getElementById('notifDot');
+    var banner = document.getElementById('notifBanner');
+
+    function updateToggleState(subscribed) {
+      if (!toggle) return;
+      toggle.style.display = '';
+      if (subscribed) {
+        toggle.classList.add('subscribed');
+        toggle.title = 'Notifications on — click to turn off';
+        dot.style.display = '';
+      } else {
+        toggle.classList.remove('subscribed');
+        toggle.title = 'Notifications off — click to turn on';
+        dot.style.display = 'none';
+      }
+    }
+
+    function subscribePush(reg) {
+      return Notification.requestPermission().then(function(permission) {
+        if (permission !== 'granted') return null;
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: vapidKey
+        }).then(function(sub) {
+          fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sub.toJSON())
+          });
+          return sub;
+        });
+      });
+    }
+
+    function unsubscribePush(sub) {
+      var endpoint = sub.endpoint;
+      return sub.unsubscribe().then(function() {
+        fetch('/api/push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: endpoint })
+        });
+      });
+    }
 
     navigator.serviceWorker.ready.then(function(reg) {
       reg.pushManager.getSubscription().then(function(sub) {
-        if (sub) return; // Already subscribed
-        // Show the banner after a short delay
-        setTimeout(function() {
-          document.getElementById('notifBanner').style.display = 'flex';
-        }, 3000);
-      });
-    });
+        var isSubscribed = !!sub;
+        updateToggleState(isSubscribed);
 
-    document.getElementById('notifAllow').addEventListener('click', function() {
-      Notification.requestPermission().then(function(permission) {
-        if (permission !== 'granted') return;
-        navigator.serviceWorker.ready.then(function(reg) {
-          reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: '<%= typeof vapidPublicKey !== "undefined" ? vapidPublicKey : "" %>'
-          }).then(function(sub) {
-            // Send subscription to server
-            fetch('/api/push/subscribe', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(sub.toJSON())
+        // Show banner for non-subscribed viewers (not on admin/login)
+        if (!isSubscribed && !isLoginOrAdmin) {
+          var dismissed = localStorage.getItem('notif-dismissed');
+          if (!dismissed || (Date.now() - parseInt(dismissed)) >= 7 * 24 * 60 * 60 * 1000) {
+            setTimeout(function() {
+              banner.style.display = 'flex';
+            }, 3000);
+          }
+        }
+
+        // Nav bell toggle click
+        if (toggle) {
+          toggle.addEventListener('click', function() {
+            reg.pushManager.getSubscription().then(function(currentSub) {
+              if (currentSub) {
+                unsubscribePush(currentSub).then(function() {
+                  updateToggleState(false);
+                });
+              } else {
+                subscribePush(reg).then(function(newSub) {
+                  updateToggleState(!!newSub);
+                });
+              }
             });
-            document.getElementById('notifBanner').style.display = 'none';
+          });
+        }
+
+        // Banner allow button
+        document.getElementById('notifAllow').addEventListener('click', function() {
+          subscribePush(reg).then(function(newSub) {
+            updateToggleState(!!newSub);
+            banner.style.display = 'none';
           });
         });
-      });
-    });
 
-    document.getElementById('notifDismiss').addEventListener('click', function() {
-      localStorage.setItem('notif-dismissed', Date.now().toString());
-      document.getElementById('notifBanner').style.display = 'none';
+        // Banner dismiss button
+        document.getElementById('notifDismiss').addEventListener('click', function() {
+          localStorage.setItem('notif-dismissed', Date.now().toString());
+          banner.style.display = 'none';
+        });
+      });
     });
   })();
   </script>

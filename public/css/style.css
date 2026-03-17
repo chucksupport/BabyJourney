@@ -1414,6 +1414,45 @@ footer strong { color: var(--rose-400); font-weight: 700; }
   .ekg-container { padding: 1rem; }
 }
 
+/* ============ NOTIFICATION TOGGLE (NAV) ============ */
+.notif-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  padding: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-400);
+  transition: color 0.15s;
+  border-radius: 6px;
+}
+
+.notif-toggle:hover {
+  color: var(--gray-700);
+  background: var(--gray-100);
+}
+
+.notif-toggle.subscribed {
+  color: var(--rose-400);
+}
+
+.notif-toggle.subscribed:hover {
+  color: var(--rose-500);
+}
+
+.notif-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--emerald-400);
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+}
+
 /* ============ NOTIFICATION BANNER ============ */
 .notif-banner {
   position: fixed;
