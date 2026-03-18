@@ -290,6 +290,14 @@ app.post('/admin/edit/:id', requireAuth, upload.array('photos', 20), (req, res) 
   res.redirect('/admin');
 });
 
+app.post('/admin/photos/reorder', requireAuth, express.json(), (req, res) => {
+  const { photoIds } = req.body;
+  if (Array.isArray(photoIds)) {
+    db.reorderUpdatePhotos(photoIds.map(Number));
+  }
+  res.json({ ok: true });
+});
+
 app.post('/admin/photo/delete/:id', requireAuth, (req, res) => {
   db.deleteUpdatePhoto(req.params.id);
   res.redirect('back');
