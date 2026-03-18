@@ -13,7 +13,7 @@
 
     <div class="form-group">
       <label for="update_date">Date & Time</label>
-      <input type="datetime-local" id="update_date" name="update_date" value="<%= update && update.update_date ? update.update_date.slice(0, 16) : new Date().toISOString().slice(0, 16) %>" required>
+      <input type="datetime-local" id="update_date" name="update_date" value="<%= update && update.update_date ? update.update_date.slice(0, 16) : '' %>" required>
     </div>
 
     <div class="form-group">
@@ -61,6 +61,14 @@
 
 <script>
 (function() {
+  // Set default date/time to local "now" for new updates
+  const dateInput = document.getElementById('update_date');
+  if (!dateInput.value) {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    dateInput.value = local.toISOString().slice(0, 16);
+  }
+
   const slider = document.getElementById('sentiment');
   const label = document.getElementById('sentiment-label');
   const labels = ['','Very rough','Rough','Hard','Below average','Okay','Decent','Good','Great','Wonderful','Amazing'];
