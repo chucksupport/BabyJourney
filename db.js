@@ -284,6 +284,14 @@ module.exports = {
     tx();
   },
 
+  reorderUpdatePhotos(photoIds) {
+    const stmt = db.prepare('UPDATE update_photos SET sort_order = ? WHERE id = ?');
+    const tx = db.transaction(() => {
+      photoIds.forEach((id, i) => stmt.run(i, id));
+    });
+    tx();
+  },
+
   deleteUpdatePhoto(photoId) {
     return db.prepare('DELETE FROM update_photos WHERE id = ?').run(photoId);
   },

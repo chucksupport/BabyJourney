@@ -107,8 +107,10 @@ app.use((req, res, next) => {
 function getAgeInfo(settings) {
   const birthDate = new Date(settings.birth_date + 'T00:00:00');
   const dueDate = new Date(settings.due_date + 'T00:00:00');
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Use local date string in the configured timezone so "today" matches the user's day
+  const tz = settings.timezone || process.env.TZ || 'America/New_York';
+  const localDateStr = new Date().toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+  const today = new Date(localDateStr + 'T00:00:00');
 
   const actualDays = Math.floor((today - birthDate) / (1000 * 60 * 60 * 24));
   const correctedDays = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
@@ -288,6 +290,14 @@ app.post('/admin/edit/:id', requireAuth, upload.array('photos', 20), (req, res) 
     db.addUpdatePhotos(req.params.id, photoPaths);
   }
   res.redirect('/admin');
+});
+
+app.post('/admin/photos/reorder', requireAuth, express.json(), (req, res) => {
+  const { photoIds } = req.body;
+  if (Array.isArray(photoIds)) {
+    db.reorderUpdatePhotos(photoIds.map(Number));
+  }
+  res.json({ ok: true });
 });
 
 app.post('/admin/photo/delete/:id', requireAuth, (req, res) => {

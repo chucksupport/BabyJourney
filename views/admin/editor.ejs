@@ -13,7 +13,7 @@
 
     <div class="form-group">
       <label for="update_date">Date & Time</label>
-      <input type="datetime-local" id="update_date" name="update_date" value="<%= update && update.update_date ? update.update_date.slice(0, 16) : new Date().toISOString().slice(0, 16) %>" required>
+      <input type="datetime-local" id="update_date" name="update_date" value="<%= update && update.update_date ? update.update_date.slice(0, 16) : '' %>" required>
     </div>
 
     <div class="form-group">
@@ -34,10 +34,11 @@
       <label for="photos">Photos (optional)</label>
       <input type="file" id="photos" name="photos" accept="image/*" multiple>
       <% if (photos && photos.length > 0) { %>
-        <div class="current-photos" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem;">
+        <p style="font-size: 0.8rem; color: var(--gray-400); margin-top: 0.5rem;">Drag to reorder. First photo is the cover.</p>
+        <div id="photo-grid" class="current-photos" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem;">
           <% photos.forEach(function(p) { %>
-            <div style="position: relative;">
-              <img src="<%= p.photo %>" alt="Photo" style="max-width: 150px; border-radius: 8px;">
+            <div class="photo-item" data-id="<%= p.id %>" draggable="true" style="position: relative; cursor: grab;">
+              <img src="<%= p.photo %>" alt="Photo" style="max-width: 150px; border-radius: 8px; pointer-events: none;">
               <button type="button" onclick="if(confirm('Delete this photo?')){fetch('/admin/photo/delete/<%= p.id %>',{method:'POST'}).then(()=>this.parentElement.remove())}" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; line-height: 1;">&times;</button>
             </div>
           <% }); %>
@@ -61,6 +62,14 @@
 
 <script>
 (function() {
+  // Set default date/time to local "now" for new updates
+  const dateInput = document.getElementById('update_date');
+  if (!dateInput.value) {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    dateInput.value = local.toISOString().slice(0, 16);
+  }
+
   const slider = document.getElementById('sentiment');
   const label = document.getElementById('sentiment-label');
   const labels = ['','Very rough','Rough','Hard','Below average','Okay','Decent','Good','Great','Wonderful','Amazing'];
@@ -108,6 +117,43 @@
 
     xhr.send(new FormData(form));
   });
+
+  // Drag-and-drop photo reordering
+  const grid = document.getElementById('photo-grid');
+  if (grid) {
+    let dragged = null;
+    grid.addEventListener('dragstart', function(e) {
+      dragged = e.target.closest('.photo-item');
+      if (dragged) dragged.style.opacity = '0.4';
+    });
+    grid.addEventListener('dragend', function() {
+      if (dragged) dragged.style.opacity = '1';
+      dragged = null;
+    });
+    grid.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      const target = e.target.closest('.photo-item');
+      if (target && target !== dragged) {
+        const items = [...grid.querySelectorAll('.photo-item')];
+        const dragIdx = items.indexOf(dragged);
+        const targetIdx = items.indexOf(target);
+        if (dragIdx < targetIdx) {
+          grid.insertBefore(dragged, target.nextSibling);
+        } else {
+          grid.insertBefore(dragged, target);
+        }
+      }
+    });
+    grid.addEventListener('drop', function(e) {
+      e.preventDefault();
+      const ids = [...grid.querySelectorAll('.photo-item')].map(el => el.dataset.id);
+      fetch('/admin/photos/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoIds: ids })
+      });
+    });
+  }
 })();
 </script>
 <%- include('../partials/footer') %>
