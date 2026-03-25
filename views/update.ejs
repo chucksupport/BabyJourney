@@ -1,7 +1,19 @@
 <%- include('partials/head', { pageTitle: update.title }) %>
 
 <section class="single-update">
-  <a href="/updates" class="back-link">&larr; Back to all updates</a>
+  <a href="/updates" class="back-link" id="backLink">&larr; Back to all updates</a>
+  <script>
+  (function() {
+    var link = document.getElementById('backLink');
+    var ref = document.referrer;
+    if (ref && (ref.indexOf('/updates') !== -1 || ref.indexOf('/#update-') !== -1 || ref.match(/\/$/))) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        history.back();
+      });
+    }
+  })();
+  </script>
 
   <article>
     <div class="update-meta">

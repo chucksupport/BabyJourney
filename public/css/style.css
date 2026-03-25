@@ -958,9 +958,9 @@ nav {
 
 .section-subtitle {
   color: var(--gray-400);
-  font-size: 0.95rem;
-  margin-top: 0.25rem;
-  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  margin-top: -0.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .catch-up-banner {
