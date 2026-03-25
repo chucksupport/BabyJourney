@@ -162,7 +162,8 @@ app.post('/login', (req, res) => {
 // ============ PUBLIC ROUTES ============
 
 app.get('/', requireViewer, (_req, res) => {
-  const updates = db.getUpdates(10);
+  const allUpdates = db.getUpdates();
+  const updates = allUpdates.slice(0, 10);
   const pinned = db.getPinnedUpdate();
   const latestVitals = db.getLatestVitals();
   const vitals = db.getVitals(30);
@@ -172,7 +173,7 @@ app.get('/', requireViewer, (_req, res) => {
   const updateIds = updates.map(u => u.id);
   if (pinned && !updateIds.includes(pinned.id)) updateIds.push(pinned.id);
   const photosMap = db.getPhotosForUpdates(updateIds);
-  res.render('index', { updates, pinned, latestVitals, vitals, milestones, ageInfo, photosMap });
+  res.render('index', { updates, allUpdates, pinned, latestVitals, vitals, milestones, ageInfo, photosMap });
 });
 
 app.get('/update/:id', requireViewer, (req, res) => {
@@ -181,6 +182,22 @@ app.get('/update/:id', requireViewer, (req, res) => {
   const photos = db.getUpdatePhotos(update.id);
   const { prev, next } = db.getAdjacentUpdates(update.update_date, update.id);
   res.render('update', { update, photos, prev, next });
+});
+
+app.get('/updates', requireViewer, (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const perPage = 10;
+  const allUpdates = db.getUpdates(); // newest first
+  const total = allUpdates.length;
+  const totalPages = Math.ceil(total / perPage);
+  // Reverse to oldest-first for catch-up reading
+  const chronological = allUpdates.slice().reverse();
+  const pageUpdates = chronological.slice((page - 1) * perPage, page * perPage);
+  const updateIds = pageUpdates.map(u => u.id);
+  const photosMap = db.getPhotosForUpdates(updateIds);
+  const settings = db.getSettings();
+  const ageInfo = getAgeInfo(settings);
+  res.render('updates', { updates: pageUpdates, photosMap, page, totalPages, ageInfo });
 });
 
 app.get('/milestones', requireViewer, (_req, res) => {

@@ -1,0 +1,58 @@
+<%- include('partials/head', { pageTitle: 'All Updates' }) %>
+
+<section class="section" style="padding-top: 2rem;">
+  <div class="section-header">
+    <h2>Myla's Journey</h2>
+    <p class="section-subtitle">All updates from the beginning — oldest first, so you can read along from day one.</p>
+  </div>
+
+  <div class="pagination-info">
+    Page <%= page %> of <%= totalPages %> &middot; Showing oldest first
+  </div>
+
+  <div class="updates-list">
+    <% updates.forEach(function(update, i) { %>
+    <article class="update-card" id="update-<%= update.id %>">
+      <div class="update-meta">
+        <span class="mood mood-<%= update.mood %>"><%= update.mood === 'great' ? 'Great day' : update.mood === 'good' ? 'Good day' : 'Tough day' %></span>
+        <time><%= new Date(update.update_date || update.created_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) %></time>
+      </div>
+      <h3><a href="/update/<%= update.id %>"><%= update.title %></a></h3>
+      <% const updatePhotos = photosMap[update.id] || []; %>
+      <% if (updatePhotos.length > 0) { %>
+      <div class="update-photo"><img src="<%= updatePhotos[0].photo %>" alt="<%= update.title %>" loading="lazy"></div>
+      <% } else if (update.photo) { %>
+      <div class="update-photo"><img src="<%= update.photo %>" alt="<%= update.title %>" loading="lazy"></div>
+      <% } %>
+      <div class="update-preview"><%- update.content.substring(0, 200).replace(/\n/g, '<br>') %><%= update.content.length > 200 ? '...' : '' %></div>
+      <a href="/update/<%= update.id %>" class="read-more">Read more</a>
+    </article>
+    <% }) %>
+  </div>
+
+  <nav class="updates-pagination">
+    <% if (page > 1) { %>
+      <a href="/updates?page=<%= page - 1 %>" class="pagination-link">&larr; Newer</a>
+    <% } else { %>
+      <span class="pagination-link disabled">&larr; Newer</span>
+    <% } %>
+
+    <span class="pagination-pages">
+      <% for (let p = 1; p <= totalPages; p++) { %>
+        <% if (p === page) { %>
+          <span class="pagination-current"><%= p %></span>
+        <% } else { %>
+          <a href="/updates?page=<%= p %>" class="pagination-num"><%= p %></a>
+        <% } %>
+      <% } %>
+    </span>
+
+    <% if (page < totalPages) { %>
+      <a href="/updates?page=<%= page + 1 %>" class="pagination-link">Older &rarr;</a>
+    <% } else { %>
+      <span class="pagination-link disabled">Older &rarr;</span>
+    <% } %>
+  </nav>
+</section>
+
+<%- include('partials/footer') %>
