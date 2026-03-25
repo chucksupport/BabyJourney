@@ -152,7 +152,7 @@
 </section>
 <% } %>
 
-<% if (updates.length > 0) { %>
+<% if (allUpdates.length > 0) { %>
 <section class="section ekg-section">
   <div class="section-header">
     <h2>Journey</h2>
@@ -190,7 +190,10 @@
 <% } %>
 
 <section class="section">
-  <h2 class="section-title">Updates</h2>
+  <div class="section-header-row">
+    <h2 class="section-title">Recent Updates</h2>
+    <a href="/updates" class="view-all-link">View all updates</a>
+  </div>
   <% if (updates.length === 0) { %>
     <div class="empty-state"><p>No updates yet. Check back soon!</p></div>
   <% } %>
@@ -215,6 +218,12 @@
       <% } %>
     <% }) %>
   </div>
+  <% if (allUpdates.length > 10) { %>
+  <div class="catch-up-banner">
+    <a href="/updates" class="catch-up-link">Start from the beginning &rarr;</a>
+    <span class="catch-up-desc"><%= allUpdates.length %> updates total</span>
+  </div>
+  <% } %>
 </section>
 
 <% if (vitals.length >= 3) { %>
@@ -259,10 +268,10 @@
 </script>
 <% } %>
 
-<% if (updates.length > 0) { %>
+<% if (allUpdates.length > 0) { %>
 <script>
 (function() {
-  const allUpdates = <%- JSON.stringify(updates.map(u => ({ id: u.id, title: u.title, sentiment: u.sentiment || 5, content: u.content.substring(0, 120), update_date: u.update_date || u.created_at, mood: u.mood }))) %>;
+  const allUpdates = <%- JSON.stringify(allUpdates.map(u => ({ id: u.id, title: u.title, sentiment: u.sentiment || 5, content: u.content.substring(0, 120), update_date: u.update_date || u.created_at, mood: u.mood }))) %>;
 
   // Sort chronologically
   const sorted = allUpdates.slice().sort((a, b) => new Date(a.update_date) - new Date(b.update_date));
