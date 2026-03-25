@@ -29,9 +29,9 @@
 
   <nav class="updates-pagination">
     <% if (page > 1) { %>
-      <a href="/updates?page=<%= page - 1 %>" class="pagination-link">&larr; Newer</a>
+      <a href="/journey?page=<%= page - 1 %>" class="pagination-link">&larr; Older</a>
     <% } else { %>
-      <span class="pagination-link disabled">&larr; Newer</span>
+      <span class="pagination-link disabled">&larr; Older</span>
     <% } %>
 
     <span class="pagination-pages">
@@ -39,15 +39,15 @@
         <% if (p === page) { %>
           <span class="pagination-current"><%= p %></span>
         <% } else { %>
-          <a href="/updates?page=<%= p %>" class="pagination-num"><%= p %></a>
+          <a href="/journey?page=<%= p %>" class="pagination-num"><%= p %></a>
         <% } %>
       <% } %>
     </span>
 
     <% if (page < totalPages) { %>
-      <a href="/updates?page=<%= page + 1 %>" class="pagination-link">Older &rarr;</a>
+      <a href="/journey?page=<%= page + 1 %>" class="pagination-link">Newer &rarr;</a>
     <% } else { %>
-      <span class="pagination-link disabled">Older &rarr;</span>
+      <span class="pagination-link disabled">Newer &rarr;</span>
     <% } %>
   </nav>
 </section>

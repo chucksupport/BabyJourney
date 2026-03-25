@@ -184,7 +184,7 @@ app.get('/update/:id', requireViewer, (req, res) => {
   res.render('update', { update, photos, prev, next });
 });
 
-app.get('/updates', requireViewer, (req, res) => {
+app.get('/journey', requireViewer, (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const perPage = 10;
   const allUpdates = db.getUpdates(); // newest first
