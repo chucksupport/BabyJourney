@@ -1,4 +1,4 @@
-const CACHE_NAME = 'myla-fyi-v2';
+const CACHE_NAME = 'babyjourney-v2';
 const OFFLINE_URL = '/';
 
 // Cache essential assets on install
@@ -51,7 +51,7 @@ self.addEventListener('fetch', (event) => {
 
 // Handle push notifications
 self.addEventListener('push', (event) => {
-  let data = { title: 'New Update on Myla.fyi', body: 'A new update has been posted!' };
+  let data = { title: 'New Baby Update', body: 'A new update has been posted!' };
 
   if (event.data) {
     try {
@@ -66,7 +66,7 @@ self.addEventListener('push', (event) => {
       body: data.body,
       icon: '/images/white-footprint.png',
       badge: '/images/white-footprint.png',
-      tag: data.tag || 'myla-update',
+      tag: data.tag || 'baby-update',
       data: { url: data.url || '/' },
       vibrate: [200, 100, 200]
     })

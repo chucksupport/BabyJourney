@@ -1,7 +1,7 @@
 {
-  "name": "mylafyi",
+  "name": "babyjourney",
   "version": "2.0.0",
-  "description": "Updates and progress tracking for Myla - now with Turso + Cloudinary",
+  "description": "NICU baby journey tracker - free, self-hosted with Turso + Cloudinary",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

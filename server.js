@@ -33,7 +33,7 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
-    'mailto:myla@myla.fyi',
+    'mailto:hello@example.com',
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY
   );
@@ -81,7 +81,7 @@ app.use(express.json());
 // Sessions — stateless cookie-session (no server-side store needed)
 app.use(cookieSession({
   name: 'session',
-  keys: [process.env.SESSION_SECRET || 'myla-fyi-secret-change-me'],
+  keys: [process.env.SESSION_SECRET || 'babyjourney-secret-change-me'],
   maxAge: 30 * 24 * 60 * 60 * 1000,
 }));
 
@@ -179,8 +179,8 @@ app.get('/login', (req, res) => {
 
 app.post('/login', (req, res) => {
   const { password } = req.body;
-  const viewerPassword = process.env.VIEWER_PASSWORD || 'myla2026';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'myla3926';
+  const viewerPassword = process.env.VIEWER_PASSWORD || 'viewer';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
   if (password === adminPassword) {
     req.session.authenticated = true;
     req.session.viewer = true;
@@ -260,7 +260,7 @@ app.get('/admin/login', (_req, res) => {
 
 app.post('/admin/login', (req, res) => {
   const { password } = req.body;
-  const adminPassword = process.env.ADMIN_PASSWORD || 'myla3926';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
   if (password === adminPassword) {
     req.session.authenticated = true;
     return res.redirect('/admin');
@@ -276,7 +276,7 @@ app.get('/admin/logout', (req, res) => {
 // Download database backup as JSON
 app.get('/admin/backup/db', requireAuth, asyncHandler(async (_req, res) => {
   const data = await db.exportAllData();
-  res.setHeader('Content-Disposition', 'attachment; filename=myla-backup.json');
+  res.setHeader('Content-Disposition', 'attachment; filename=babyjourney-backup.json');
   res.json(data);
 }));
 
@@ -522,7 +522,7 @@ async function sendPushNotifications(title, body, url) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
 
   const subscriptions = await db.getAllPushSubscriptions();
-  const payload = JSON.stringify({ title, body, url, tag: 'myla-update-' + Date.now() });
+  const payload = JSON.stringify({ title, body, url, tag: 'baby-update-' + Date.now() });
 
   for (const sub of subscriptions) {
     const pushSub = {
@@ -581,7 +581,7 @@ app.use((_req, res) => {
 async function main() {
   await db.init();
   app.listen(PORT, () => {
-    console.log(`Myla.fyi running on http://localhost:${PORT}`);
+    console.log(`BabyJourney running on http://localhost:${PORT}`);
   });
 }
 
