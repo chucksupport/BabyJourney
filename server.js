@@ -552,7 +552,7 @@ app.get('/manifest.json', asyncHandler(async (_req, res) => {
   const isLight = theme.endsWith('-light');
   res.json({
     name: name + "'s Journey",
-    short_name: name + ".fyi",
+    short_name: name + "'s Journey",
     description: "Follow " + name + "'s journey - born early, growing strong.",
     start_url: "/",
     display: "standalone",
