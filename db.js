@@ -183,6 +183,7 @@ async function init() {
       ['due_date', ''],
       ['birth_weight_grams', ''],
       ['nicu_name', ''],
+      ['storage_used_bytes', '0'],
     ];
     const stmts = defaults.map(([k, v]) => ({
       sql: 'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)',
@@ -432,6 +433,22 @@ module.exports = {
   async setSetting(key, value) {
     settingsCache = null; // invalidate cache
     return client.execute({ sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', args: [key, value] });
+  },
+
+  // Storage tracking
+  async getStorageUsed() {
+    const r = await client.execute({ sql: "SELECT value FROM settings WHERE key = 'storage_used_bytes'", args: [] });
+    return Number(r.rows[0]?.value || 0);
+  },
+
+  async addStorageUsed(bytes) {
+    const current = await this.getStorageUsed();
+    return this.setSetting('storage_used_bytes', String(current + bytes));
+  },
+
+  async subtractStorageUsed(bytes) {
+    const current = await this.getStorageUsed();
+    return this.setSetting('storage_used_bytes', String(Math.max(0, current - bytes)));
   },
 
   // Push Subscriptions

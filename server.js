@@ -22,7 +22,7 @@ function uploadToCloudinary(fileBuffer) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       { folder: 'babyjourney', resource_type: 'image' },
-      (err, result) => err ? reject(err) : resolve(result.secure_url)
+      (err, result) => err ? reject(err) : resolve({ url: result.secure_url, bytes: result.bytes })
     );
     stream.end(fileBuffer);
   });
@@ -106,12 +106,31 @@ const upload = multer({
   }
 });
 
-// Helper: handle file upload (Cloudinary or local disk)
+// Storage limit (default 1GB, configurable via env)
+const STORAGE_LIMIT_BYTES = (parseInt(process.env.STORAGE_LIMIT_MB) || 1024) * 1024 * 1024;
+
+// Helper: handle file upload (Cloudinary or local disk) with storage tracking
 async function handleUpload(file) {
   if (useCloudinary) {
-    return uploadToCloudinary(file.buffer);
+    const result = await uploadToCloudinary(file.buffer);
+    await db.addStorageUsed(result.bytes);
+    return result.url;
   }
+  // Local disk: track actual file size
+  await db.addStorageUsed(file.size);
   return '/uploads/' + file.filename;
+}
+
+// Helper: check if storage limit would be exceeded
+async function checkStorageLimit(files) {
+  const used = await db.getStorageUsed();
+  const incoming = files.reduce((sum, f) => sum + f.size, 0);
+  if (used + incoming > STORAGE_LIMIT_BYTES) {
+    const usedMB = (used / 1024 / 1024).toFixed(1);
+    const limitMB = (STORAGE_LIMIT_BYTES / 1024 / 1024).toFixed(0);
+    return `Storage limit reached (${usedMB} MB / ${limitMB} MB). Delete some photos to free up space.`;
+  }
+  return null;
 }
 
 // Async route wrapper for Express 4 (catches rejected promises)
@@ -305,7 +324,11 @@ app.get('/admin', requireAuth, asyncHandler(async (_req, res) => {
   const latestVitals = await db.getLatestVitals();
   const settings = await db.getSettings();
   const ageInfo = getAgeInfo(settings);
-  res.render('admin/dashboard', { updates, latestVitals, ageInfo });
+  const storageUsed = await db.getStorageUsed();
+  const storageMB = (storageUsed / 1024 / 1024).toFixed(1);
+  const storageLimitMB = (STORAGE_LIMIT_BYTES / 1024 / 1024).toFixed(0);
+  const storagePercent = Math.min(100, ((storageUsed / STORAGE_LIMIT_BYTES) * 100)).toFixed(1);
+  res.render('admin/dashboard', { updates, latestVitals, ageInfo, storageUsed, storageMB, storageLimitMB, storagePercent });
 }));
 
 // Updates
@@ -315,6 +338,10 @@ app.get('/admin/new', requireAuth, (_req, res) => {
 
 app.post('/admin/new', requireAuth, upload.array('photos', 20), asyncHandler(async (req, res) => {
   const { title, content, sentiment, update_date } = req.body;
+  if (req.files && req.files.length) {
+    const limitErr = await checkStorageLimit(req.files);
+    if (limitErr) return res.status(400).render('admin/editor', { update: null, photos: [], error: limitErr });
+  }
   let photo = null;
   if (req.files && req.files.length) {
     photo = await handleUpload(req.files[0]);
@@ -342,6 +369,14 @@ app.get('/admin/edit/:id', requireAuth, asyncHandler(async (req, res) => {
 
 app.post('/admin/edit/:id', requireAuth, upload.array('photos', 20), asyncHandler(async (req, res) => {
   const { title, content, sentiment, update_date } = req.body;
+  if (req.files && req.files.length) {
+    const limitErr = await checkStorageLimit(req.files);
+    if (limitErr) {
+      const update = await db.getUpdate(req.params.id);
+      const photos = await db.getUpdatePhotos(req.params.id);
+      return res.status(400).render('admin/editor', { update, photos, error: limitErr });
+    }
+  }
   let photo = null;
   if (req.files && req.files.length) {
     photo = await handleUpload(req.files[0]);
@@ -489,8 +524,11 @@ app.post('/admin/settings', requireAuth, upload.single('site_logo'), asyncHandle
     if (req.body[field] !== undefined) await db.setSetting(field, req.body[field]);
   }
   if (req.file) {
-    const logoUrl = await handleUpload(req.file);
-    await db.setSetting('site_logo', logoUrl);
+    const limitErr = await checkStorageLimit([req.file]);
+    if (!limitErr) {
+      const logoUrl = await handleUpload(req.file);
+      await db.setSetting('site_logo', logoUrl);
+    }
   }
   res.redirect('/admin/settings');
 }));
