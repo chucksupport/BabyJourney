@@ -5,7 +5,7 @@
 
   <h1>Settings</h1>
 
-  <form method="POST" action="/admin/settings" class="editor-form">
+  <form method="POST" action="/admin/settings" class="editor-form" enctype="multipart/form-data">
     <div class="form-row">
       <div class="form-group">
         <label for="baby_name">Baby's Name</label>
@@ -48,8 +48,164 @@
       <input type="number" id="birth_weight_grams" name="birth_weight_grams" value="<%= settings.birth_weight_grams || '' %>" placeholder="e.g. 680">
     </div>
 
+    <hr style="border: none; border-top: 1px solid var(--card-border); margin: 1.5rem 0;">
+
+    <h2 style="font-family: 'Playfair Display', Georgia, serif; font-size: 1.4rem; color: var(--gray-900); margin-bottom: 1rem;">Site Logo / Favicon</h2>
+
+    <div class="form-group">
+      <% if (settings.site_logo) { %>
+        <div class="logo-preview">
+          <img src="<%= settings.site_logo %>" alt="Current logo">
+          <span class="current-label">Current logo</span>
+        </div>
+      <% } else { %>
+        <div class="logo-preview">
+          <img src="/images/white-footprint.png" alt="Default logo">
+          <span class="current-label">Default logo (footprint)</span>
+        </div>
+      <% } %>
+      <label for="site_logo">Upload new logo (PNG, JPG, or WebP)</label>
+      <input type="file" id="site_logo" name="site_logo" accept="image/png,image/jpeg,image/webp">
+    </div>
+
+    <% if (settings.site_logo) { %>
+      <div class="form-group" style="margin-top: -0.5rem;">
+        <button type="button" onclick="if(confirm('Reset to default footprint logo?')) document.getElementById('resetLogoForm').submit();" class="btn" style="font-size: 0.85rem; padding: 0.4rem 0.75rem; background: var(--gray-100); color: var(--gray-500);">Reset to Default</button>
+      </div>
+    <% } %>
+
+    <hr style="border: none; border-top: 1px solid var(--card-border); margin: 1.5rem 0;">
+
+    <h2 style="font-family: 'Playfair Display', Georgia, serif; font-size: 1.4rem; color: var(--gray-900); margin-bottom: 1rem;">Color Theme</h2>
+
+    <div class="form-group">
+      <label>Dark Themes</label>
+      <div class="theme-grid">
+        <label class="theme-option">
+          <input type="radio" name="theme" value="rose" <%= (!settings.theme || settings.theme === 'rose') ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #0f1117;"></div>
+              <div class="theme-swatch-dot" style="background: #e44b6a;"></div>
+              <div class="theme-swatch-dot" style="background: #161920;"></div>
+            </div>
+            <span class="theme-swatch-name">Rose</span>
+          </div>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="ocean" <%= settings.theme === 'ocean' ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #0f1117;"></div>
+              <div class="theme-swatch-dot" style="background: #0ea5e9;"></div>
+              <div class="theme-swatch-dot" style="background: #161920;"></div>
+            </div>
+            <span class="theme-swatch-name">Ocean</span>
+          </div>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="lavender" <%= settings.theme === 'lavender' ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #0f1117;"></div>
+              <div class="theme-swatch-dot" style="background: #a855f7;"></div>
+              <div class="theme-swatch-dot" style="background: #161920;"></div>
+            </div>
+            <span class="theme-swatch-name">Lavender</span>
+          </div>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="sunset" <%= settings.theme === 'sunset' ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #0f1117;"></div>
+              <div class="theme-swatch-dot" style="background: #f97316;"></div>
+              <div class="theme-swatch-dot" style="background: #161920;"></div>
+            </div>
+            <span class="theme-swatch-name">Sunset</span>
+          </div>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="forest" <%= settings.theme === 'forest' ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #0f1117;"></div>
+              <div class="theme-swatch-dot" style="background: #10b981;"></div>
+              <div class="theme-swatch-dot" style="background: #161920;"></div>
+            </div>
+            <span class="theme-swatch-name">Forest</span>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Light Themes</label>
+      <div class="theme-grid">
+        <label class="theme-option">
+          <input type="radio" name="theme" value="rose-light" <%= settings.theme === 'rose-light' ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #f5f5f7;"></div>
+              <div class="theme-swatch-dot" style="background: #e44b6a;"></div>
+              <div class="theme-swatch-dot" style="background: #ffffff;"></div>
+            </div>
+            <span class="theme-swatch-name">Rose Light</span>
+          </div>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="ocean-light" <%= settings.theme === 'ocean-light' ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #f5f5f7;"></div>
+              <div class="theme-swatch-dot" style="background: #0ea5e9;"></div>
+              <div class="theme-swatch-dot" style="background: #ffffff;"></div>
+            </div>
+            <span class="theme-swatch-name">Ocean Light</span>
+          </div>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="lavender-light" <%= settings.theme === 'lavender-light' ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #f5f5f7;"></div>
+              <div class="theme-swatch-dot" style="background: #a855f7;"></div>
+              <div class="theme-swatch-dot" style="background: #ffffff;"></div>
+            </div>
+            <span class="theme-swatch-name">Lavender Light</span>
+          </div>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="sunset-light" <%= settings.theme === 'sunset-light' ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #f5f5f7;"></div>
+              <div class="theme-swatch-dot" style="background: #f97316;"></div>
+              <div class="theme-swatch-dot" style="background: #ffffff;"></div>
+            </div>
+            <span class="theme-swatch-name">Sunset Light</span>
+          </div>
+        </label>
+        <label class="theme-option">
+          <input type="radio" name="theme" value="forest-light" <%= settings.theme === 'forest-light' ? 'checked' : '' %>>
+          <div class="theme-swatch">
+            <div class="theme-swatch-colors">
+              <div class="theme-swatch-dot" style="background: #f5f5f7;"></div>
+              <div class="theme-swatch-dot" style="background: #10b981;"></div>
+              <div class="theme-swatch-dot" style="background: #ffffff;"></div>
+            </div>
+            <span class="theme-swatch-name">Forest Light</span>
+          </div>
+        </label>
+      </div>
+    </div>
+
     <button type="submit" class="btn btn-primary btn-full">Save Settings</button>
   </form>
+
+  <% if (settings.site_logo) { %>
+    <form id="resetLogoForm" method="POST" action="/admin/settings/reset-logo" style="display: none;"></form>
+  <% } %>
 </section>
 
 <%- include('../partials/footer') %>

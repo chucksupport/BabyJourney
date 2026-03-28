@@ -27,7 +27,7 @@
 
     <div class="form-group">
       <label for="content">What happened today?</label>
-      <textarea id="content" name="content" rows="10" required placeholder="Tell everyone how Myla is doing today..."><%= update ? update.content : '' %></textarea>
+      <textarea id="content" name="content" rows="10" required placeholder="Tell everyone how <%= settings.baby_name || 'baby' %> is doing today..."><%= update ? update.content : '' %></textarea>
     </div>
 
     <div class="form-group">
