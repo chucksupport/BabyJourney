@@ -5,6 +5,10 @@
 
   <h1><%= update ? 'Edit Update' : 'New Update' %></h1>
 
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-error"><%= error %></div>
+  <% } %>
+
   <form method="POST" action="<%= update ? '/admin/edit/' + update.id : '/admin/new' %>" enctype="multipart/form-data" class="editor-form">
     <div class="form-group">
       <label for="title">Title</label>

@@ -20,6 +20,16 @@
     </a>
   </div>
 
+  <% if (typeof storageUsed !== 'undefined') { %>
+  <div class="admin-summary">
+    <h3>Storage</h3>
+    <div class="storage-bar" style="background:#2a2a3a;border-radius:8px;height:12px;overflow:hidden;margin:8px 0">
+      <div style="background:var(--accent);height:100%;width:<%= Math.min(100, storagePercent) %>%;border-radius:8px;transition:width 0.3s"></div>
+    </div>
+    <p style="font-size:0.85rem;opacity:0.7"><%= storageMB %> MB / <%= storageLimitMB %> MB used (<%= storagePercent %>%)</p>
+  </div>
+  <% } %>
+
   <% if (latestVitals) { %>
   <div class="admin-summary">
     <h3>Latest Vitals</h3>
