@@ -27,3 +27,5 @@ services:
         sync: false
       - key: VAPID_PRIVATE_KEY
         sync: false
+      - key: STORAGE_LIMIT_MB
+        value: 1024
