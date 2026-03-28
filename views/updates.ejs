@@ -1,7 +1,7 @@
 <%- include('partials/head', { pageTitle: 'All Updates' }) %>
 
 <section class="section" style="padding-top: 2rem;">
-  <h2 class="section-title">Myla's Journey</h2>
+  <h2 class="section-title"><%= settings.baby_name || 'Baby' %>'s Journey</h2>
   <p class="section-subtitle">Oldest first — start from day one and read along.</p>
   <div class="pagination-info">
     Page <%= page %> of <%= totalPages %>

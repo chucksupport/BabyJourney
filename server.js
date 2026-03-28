@@ -438,11 +438,20 @@ app.get('/admin/settings', requireAuth, (_req, res) => {
   res.render('admin/settings');
 });
 
-app.post('/admin/settings', requireAuth, (req, res) => {
-  const fields = ['baby_name', 'birth_date', 'birth_time', 'gestational_age_weeks', 'gestational_age_days', 'due_date', 'birth_weight_grams', 'nicu_name'];
+app.post('/admin/settings', requireAuth, upload.single('site_logo'), (req, res) => {
+  const fields = ['baby_name', 'display_name', 'birth_date', 'birth_time', 'gestational_age_weeks', 'gestational_age_days', 'due_date', 'birth_weight_grams', 'nicu_name', 'theme'];
   for (const field of fields) {
     if (req.body[field] !== undefined) db.setSetting(field, req.body[field]);
   }
+  if (req.file) {
+    db.setSetting('site_logo', '/uploads/' + req.file.filename);
+  }
+  res.redirect('/admin/settings');
+});
+
+// Reset logo to default
+app.post('/admin/settings/reset-logo', requireAuth, (_req, res) => {
+  db.setSetting('site_logo', '');
   res.redirect('/admin/settings');
 });
 
@@ -486,6 +495,35 @@ function sendPushNotifications(title, body, url) {
     });
   }
 }
+
+// Dynamic manifest.json (uses settings for logo and theme color)
+const THEME_COLORS = {
+  rose: '#e44b6a', ocean: '#0ea5e9', lavender: '#a855f7', sunset: '#f97316', forest: '#10b981',
+  'rose-light': '#e44b6a', 'ocean-light': '#0ea5e9', 'lavender-light': '#a855f7', 'sunset-light': '#f97316', 'forest-light': '#10b981',
+};
+
+app.get('/manifest.json', (_req, res) => {
+  const settings = db.getSettings();
+  const logo = settings.site_logo || '/images/white-footprint.png';
+  const name = settings.baby_name || 'Baby';
+  const theme = settings.theme || 'rose';
+  const themeColor = THEME_COLORS[theme] || '#e44b6a';
+  const isLight = theme.endsWith('-light');
+  res.json({
+    name: name + "'s Journey",
+    short_name: name + ".fyi",
+    description: "Follow " + name + "'s journey - born early, growing strong.",
+    start_url: "/",
+    display: "standalone",
+    background_color: isLight ? '#f5f5f7' : '#0f1117',
+    theme_color: themeColor,
+    orientation: "portrait-primary",
+    icons: [
+      { src: logo, sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: logo, sizes: "512x512", type: "image/png", purpose: "any maskable" }
+    ]
+  });
+});
 
 // 404
 app.use((_req, res) => {

@@ -2,8 +2,8 @@
 
 <section class="auth-page">
   <div class="auth-card">
-    <h1>Myla.fyi</h1>
-    <p>Enter the password to follow Myla's journey.</p>
+    <h1><%= settings.baby_name || 'Baby' %>.fyi</h1>
+    <p>Enter the password to follow <%= settings.baby_name || 'Baby' %>'s journey.</p>
 
     <% if (error) { %>
       <div class="alert alert-error"><%= error %></div>
