@@ -13,7 +13,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' - ' : '' %><%= _babyName %>.fyi</title>
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' - ' : '' %><%= _babyName %>'s Journey</title>
   <meta name="description" content="Follow <%= _babyName %>'s journey - born early, growing strong.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,19 +25,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="<%= _logo %>">
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-VZNGR7YSH3"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-VZNGR7YSH3');
-  </script>
+
 </head>
 <body>
   <header>
     <nav>
-      <a href="/" class="logo"><img src="<%= _logo %>" alt="<%= _babyName %>" class="logo-icon"><span class="logo-text"><%= _babyName.charAt(0) %><span><%= _babyName.slice(1) %></span>.fyi</span></a>
+      <a href="/" class="logo"><img src="<%= _logo %>" alt="<%= _babyName %>" class="logo-icon"><span class="logo-text"><%= _babyName.charAt(0) %><span><%= _babyName.slice(1) %></span></span></a>
       <% if (typeof viewer !== 'undefined' && viewer) { %>
       <div class="nav-links">
         <a href="/">Home</a>
