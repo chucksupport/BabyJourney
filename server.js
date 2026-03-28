@@ -1,11 +1,32 @@
 const express = require('express');
-const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const cookieSession = require('cookie-session');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const webpush = require('web-push');
 const db = require('./db');
+
+// Cloudinary setup (optional — falls back to local disk when not configured)
+const useCloudinary = !!process.env.CLOUDINARY_CLOUD_NAME;
+let cloudinary;
+if (useCloudinary) {
+  cloudinary = require('cloudinary').v2;
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
+
+function uploadToCloudinary(fileBuffer) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: 'babyjourney', resource_type: 'image' },
+      (err, result) => err ? reject(err) : resolve(result.secure_url)
+    );
+    stream.end(fileBuffer);
+  });
+}
 
 // Web Push (VAPID) configuration
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
@@ -26,10 +47,11 @@ function celsiusToFahrenheit(c) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Persistent storage paths
-const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+// Local uploads dir (used only when Cloudinary is not configured)
 const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, 'public/uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!useCloudinary && !fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // View engine
 app.set('view engine', 'ejs');
@@ -48,29 +70,31 @@ app.get('/sw.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'sw.js'));
 });
 
-// Static files - serve uploads from persistent disk, rest from public/
-app.use('/uploads', express.static(uploadsDir, { maxAge: '7d' }));
+// Static files
+if (!useCloudinary) {
+  app.use('/uploads', express.static(uploadsDir, { maxAge: '7d' }));
+}
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Sessions
-app.use(session({
-  store: new SQLiteStore({ db: 'sessions.sqlite', dir: dataDir }),
-  secret: process.env.SESSION_SECRET || 'myla-fyi-secret-change-me',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }
+// Sessions — stateless cookie-session (no server-side store needed)
+app.use(cookieSession({
+  name: 'session',
+  keys: [process.env.SESSION_SECRET || 'myla-fyi-secret-change-me'],
+  maxAge: 30 * 24 * 60 * 60 * 1000,
 }));
 
-// File upload config
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e6) + path.extname(file.originalname);
-    cb(null, uniqueName);
-  }
-});
+// File upload config — memory storage when using Cloudinary, disk otherwise
+const storage = useCloudinary
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, uploadsDir),
+      filename: (_req, file, cb) => {
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e6) + path.extname(file.originalname);
+        cb(null, uniqueName);
+      }
+    });
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -81,6 +105,17 @@ const upload = multer({
     cb(null, ext && mime);
   }
 });
+
+// Helper: handle file upload (Cloudinary or local disk)
+async function handleUpload(file) {
+  if (useCloudinary) {
+    return uploadToCloudinary(file.buffer);
+  }
+  return '/uploads/' + file.filename;
+}
+
+// Async route wrapper for Express 4 (catches rejected promises)
+const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // Auth middleware - admin
 function requireAuth(req, res, next) {
@@ -95,21 +130,20 @@ function requireViewer(req, res, next) {
 }
 
 // Make common data available to all views
-app.use((req, res, next) => {
+app.use(asyncHandler(async (req, res, next) => {
   res.locals.authenticated = req.session && req.session.authenticated;
   res.locals.viewer = req.session && (req.session.viewer || req.session.authenticated);
-  res.locals.settings = db.getSettings();
+  res.locals.settings = await db.getSettings();
   res.locals.vapidPublicKey = VAPID_PUBLIC_KEY;
   next();
-});
+}));
 
 // Helper: compute age info from settings
 function getAgeInfo(settings) {
   const birthDate = new Date(settings.birth_date + 'T00:00:00');
   const dueDate = new Date(settings.due_date + 'T00:00:00');
-  // Use local date string in the configured timezone so "today" matches the user's day
   const tz = settings.timezone || process.env.TZ || 'America/New_York';
-  const localDateStr = new Date().toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+  const localDateStr = new Date().toLocaleDateString('en-CA', { timeZone: tz });
   const today = new Date(localDateStr + 'T00:00:00');
 
   const actualDays = Math.floor((today - birthDate) / (1000 * 60 * 60 * 24));
@@ -161,64 +195,62 @@ app.post('/login', (req, res) => {
 
 // ============ PUBLIC ROUTES ============
 
-app.get('/', requireViewer, (_req, res) => {
-  const allUpdates = db.getUpdates();
+app.get('/', requireViewer, asyncHandler(async (_req, res) => {
+  const allUpdates = await db.getUpdates();
   const updates = allUpdates.slice(0, 10);
-  const pinned = db.getPinnedUpdate();
-  const latestVitals = db.getLatestVitals();
-  const vitals = db.getVitals(30);
-  const milestones = db.getMilestonesByCategory();
-  const settings = db.getSettings();
+  const pinned = await db.getPinnedUpdate();
+  const latestVitals = await db.getLatestVitals();
+  const vitals = await db.getVitals(30);
+  const milestones = await db.getMilestonesByCategory();
+  const settings = await db.getSettings();
   const ageInfo = getAgeInfo(settings);
   const updateIds = updates.map(u => u.id);
   if (pinned && !updateIds.includes(pinned.id)) updateIds.push(pinned.id);
-  const photosMap = db.getPhotosForUpdates(updateIds);
+  const photosMap = await db.getPhotosForUpdates(updateIds);
   res.render('index', { updates, allUpdates, pinned, latestVitals, vitals, milestones, ageInfo, photosMap });
-});
+}));
 
-app.get('/update/:id', requireViewer, (req, res) => {
-  const update = db.getUpdate(req.params.id);
+app.get('/update/:id', requireViewer, asyncHandler(async (req, res) => {
+  const update = await db.getUpdate(req.params.id);
   if (!update) return res.status(404).render('404');
-  const photos = db.getUpdatePhotos(update.id);
-  const { prev, next } = db.getAdjacentUpdates(update.update_date, update.id);
+  const photos = await db.getUpdatePhotos(update.id);
+  const { prev, next } = await db.getAdjacentUpdates(update.update_date, update.id);
   res.render('update', { update, photos, prev, next });
-});
+}));
 
-app.get('/journey', requireViewer, (req, res) => {
+app.get('/journey', requireViewer, asyncHandler(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const perPage = 10;
-  const allUpdates = db.getUpdates(); // newest first
+  const allUpdates = await db.getUpdates();
   const total = allUpdates.length;
   const totalPages = Math.ceil(total / perPage);
-  // Reverse to oldest-first for catch-up reading
   const chronological = allUpdates.slice().reverse();
   const pageUpdates = chronological.slice((page - 1) * perPage, page * perPage);
   const updateIds = pageUpdates.map(u => u.id);
-  const photosMap = db.getPhotosForUpdates(updateIds);
-  const settings = db.getSettings();
+  const photosMap = await db.getPhotosForUpdates(updateIds);
+  const settings = await db.getSettings();
   const ageInfo = getAgeInfo(settings);
   res.render('updates', { updates: pageUpdates, photosMap, page, totalPages, ageInfo });
-});
+}));
 
-app.get('/milestones', requireViewer, (_req, res) => {
-  const milestones = db.getMilestonesByCategory();
-  const settings = db.getSettings();
+app.get('/milestones', requireViewer, asyncHandler(async (_req, res) => {
+  const milestones = await db.getMilestonesByCategory();
+  const settings = await db.getSettings();
   const ageInfo = getAgeInfo(settings);
   res.render('milestones', { milestones, ageInfo });
-});
+}));
 
-app.get('/vitals', requireViewer, (_req, res) => {
-  const vitals = db.getVitals(90);
-  const settings = db.getSettings();
+app.get('/vitals', requireViewer, asyncHandler(async (_req, res) => {
+  const vitals = await db.getVitals(90);
+  const settings = await db.getSettings();
   const ageInfo = getAgeInfo(settings);
   res.render('vitals', { vitals, ageInfo });
-});
+}));
 
-// JSON endpoint for chart data
-app.get('/api/vitals', requireViewer, (_req, res) => {
-  const vitals = db.getVitals(90);
+app.get('/api/vitals', requireViewer, asyncHandler(async (_req, res) => {
+  const vitals = await db.getVitals(90);
   res.json(vitals.reverse());
-});
+}));
 
 // ============ ADMIN ROUTES ============
 
@@ -237,115 +269,128 @@ app.post('/admin/login', (req, res) => {
 });
 
 app.get('/admin/logout', (req, res) => {
-  req.session.destroy();
+  req.session = null;
   res.redirect('/');
 });
 
-// Download database backup
-app.get('/admin/backup/db', requireAuth, (_req, res) => {
-  // Flush WAL to main DB file so the download contains all data
-  db.checkpoint();
-  const dbPath = path.join(dataDir, 'myla.db');
-  res.download(dbPath, 'myla.db');
-});
+// Download database backup as JSON
+app.get('/admin/backup/db', requireAuth, asyncHandler(async (_req, res) => {
+  const data = await db.exportAllData();
+  res.setHeader('Content-Disposition', 'attachment; filename=myla-backup.json');
+  res.json(data);
+}));
 
-// Download uploads as zip
-app.get('/admin/backup/uploads', requireAuth, (_req, res) => {
-  const archiver = require('archiver');
-  const uploadsDir = process.env.UPLOADS_DIR || path.join(dataDir, 'uploads');
-  res.attachment('uploads.zip');
-  const archive = archiver('zip');
-  archive.pipe(res);
-  archive.directory(uploadsDir, false);
-  archive.finalize();
-});
+// Download photo URLs list (photos are stored in Cloudinary or listed for reference)
+app.get('/admin/backup/uploads', requireAuth, asyncHandler(async (_req, res) => {
+  if (!useCloudinary) {
+    // Local mode: zip uploads directory
+    const archiver = require('archiver');
+    const localUploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, 'public/uploads');
+    res.attachment('uploads.zip');
+    const archive = archiver('zip');
+    archive.pipe(res);
+    archive.directory(localUploadsDir, false);
+    archive.finalize();
+  } else {
+    // Cloudinary mode: export photo URLs as JSON
+    const photos = await db.exportAllData();
+    const urls = photos.update_photos.map(p => p.photo);
+    res.setHeader('Content-Disposition', 'attachment; filename=photo-urls.json');
+    res.json({ photos: urls, exportedAt: new Date().toISOString() });
+  }
+}));
 
-app.get('/admin', requireAuth, (_req, res) => {
-  const updates = db.getUpdates();
-  const latestVitals = db.getLatestVitals();
-  const settings = db.getSettings();
+app.get('/admin', requireAuth, asyncHandler(async (_req, res) => {
+  const updates = await db.getUpdates();
+  const latestVitals = await db.getLatestVitals();
+  const settings = await db.getSettings();
   const ageInfo = getAgeInfo(settings);
   res.render('admin/dashboard', { updates, latestVitals, ageInfo });
-});
+}));
 
 // Updates
 app.get('/admin/new', requireAuth, (_req, res) => {
   res.render('admin/editor', { update: null, photos: [] });
 });
 
-app.post('/admin/new', requireAuth, upload.array('photos', 20), (req, res) => {
+app.post('/admin/new', requireAuth, upload.array('photos', 20), asyncHandler(async (req, res) => {
   const { title, content, sentiment, update_date } = req.body;
-  const photo = req.files && req.files.length ? '/uploads/' + req.files[0].filename : null;
-  const result = db.createUpdate({ title, content, sentiment: parseInt(sentiment) || 5, photo, update_date });
+  let photo = null;
   if (req.files && req.files.length) {
-    const photoPaths = req.files.map(f => '/uploads/' + f.filename);
-    db.addUpdatePhotos(result.lastInsertRowid, photoPaths);
+    photo = await handleUpload(req.files[0]);
   }
-  // Send push notification for the new update
+  const result = await db.createUpdate({ title, content, sentiment: parseInt(sentiment) || 5, photo, update_date });
+  if (req.files && req.files.length) {
+    const photoPaths = await Promise.all(req.files.map(f => handleUpload(f)));
+    await db.addUpdatePhotos(result.lastInsertRowid, photoPaths);
+  }
   const snippet = content.substring(0, 100).replace(/\n/g, ' ') + (content.length > 100 ? '...' : '');
   sendPushNotifications(
     'New Update: ' + title,
     snippet,
     '/update/' + result.lastInsertRowid
-  );
+  ).catch(console.error);
   res.redirect('/admin');
-});
+}));
 
-app.get('/admin/edit/:id', requireAuth, (req, res) => {
-  const update = db.getUpdate(req.params.id);
+app.get('/admin/edit/:id', requireAuth, asyncHandler(async (req, res) => {
+  const update = await db.getUpdate(req.params.id);
   if (!update) return res.status(404).render('404');
-  const photos = db.getUpdatePhotos(update.id);
+  const photos = await db.getUpdatePhotos(update.id);
   res.render('admin/editor', { update, photos });
-});
+}));
 
-app.post('/admin/edit/:id', requireAuth, upload.array('photos', 20), (req, res) => {
+app.post('/admin/edit/:id', requireAuth, upload.array('photos', 20), asyncHandler(async (req, res) => {
   const { title, content, sentiment, update_date } = req.body;
-  const photo = req.files && req.files.length ? '/uploads/' + req.files[0].filename : null;
-  db.editUpdate(req.params.id, { title, content, sentiment: parseInt(sentiment) || 5, photo, update_date });
+  let photo = null;
   if (req.files && req.files.length) {
-    const photoPaths = req.files.map(f => '/uploads/' + f.filename);
-    db.addUpdatePhotos(req.params.id, photoPaths);
+    photo = await handleUpload(req.files[0]);
+  }
+  await db.editUpdate(req.params.id, { title, content, sentiment: parseInt(sentiment) || 5, photo, update_date });
+  if (req.files && req.files.length) {
+    const photoPaths = await Promise.all(req.files.map(f => handleUpload(f)));
+    await db.addUpdatePhotos(req.params.id, photoPaths);
   }
   res.redirect('/admin');
-});
+}));
 
-app.post('/admin/photos/reorder', requireAuth, express.json(), (req, res) => {
+app.post('/admin/photos/reorder', requireAuth, express.json(), asyncHandler(async (req, res) => {
   const { photoIds } = req.body;
   if (Array.isArray(photoIds)) {
-    db.reorderUpdatePhotos(photoIds.map(Number));
+    await db.reorderUpdatePhotos(photoIds.map(Number));
   }
   res.json({ ok: true });
-});
+}));
 
-app.post('/admin/photo/delete/:id', requireAuth, (req, res) => {
-  db.deleteUpdatePhoto(req.params.id);
+app.post('/admin/photo/delete/:id', requireAuth, asyncHandler(async (req, res) => {
+  await db.deleteUpdatePhoto(req.params.id);
   res.redirect('back');
-});
+}));
 
-app.post('/admin/delete/:id', requireAuth, (req, res) => {
-  db.deleteUpdate(req.params.id);
+app.post('/admin/delete/:id', requireAuth, asyncHandler(async (req, res) => {
+  await db.deleteUpdate(req.params.id);
   res.redirect('/admin');
-});
+}));
 
-app.post('/admin/pin/:id', requireAuth, (req, res) => {
-  db.pinUpdate(req.params.id);
+app.post('/admin/pin/:id', requireAuth, asyncHandler(async (req, res) => {
+  await db.pinUpdate(req.params.id);
   res.redirect('/admin');
-});
+}));
 
-app.post('/admin/unpin/:id', requireAuth, (req, res) => {
-  db.unpinUpdate(req.params.id);
+app.post('/admin/unpin/:id', requireAuth, asyncHandler(async (req, res) => {
+  await db.unpinUpdate(req.params.id);
   res.redirect('/admin');
-});
+}));
 
 // Vitals
-app.get('/admin/vitals', requireAuth, (_req, res) => {
-  const vitals = db.getVitals(30);
-  const latest = db.getLatestVitals();
+app.get('/admin/vitals', requireAuth, asyncHandler(async (_req, res) => {
+  const vitals = await db.getVitals(30);
+  const latest = await db.getLatestVitals();
   res.render('admin/vitals', { vitals, latest, editing: null });
-});
+}));
 
-app.post('/admin/vitals', requireAuth, (req, res) => {
-  db.createVital({
+app.post('/admin/vitals', requireAuth, asyncHandler(async (req, res) => {
+  await db.createVital({
     recorded_at: req.body.recorded_at || new Date().toISOString(),
     weight_grams: req.body.weight_grams,
     length_cm: req.body.length_cm,
@@ -364,17 +409,17 @@ app.post('/admin/vitals', requireAuth, (req, res) => {
     notes: req.body.notes,
   });
   res.redirect('/admin/vitals');
-});
+}));
 
-app.get('/admin/vitals/edit/:id', requireAuth, (req, res) => {
-  const vital = db.getVital(req.params.id);
+app.get('/admin/vitals/edit/:id', requireAuth, asyncHandler(async (req, res) => {
+  const vital = await db.getVital(req.params.id);
   if (!vital) return res.status(404).render('404');
-  const vitals = db.getVitals(30);
+  const vitals = await db.getVitals(30);
   res.render('admin/vitals', { vitals, latest: vital, editing: vital });
-});
+}));
 
-app.post('/admin/vitals/edit/:id', requireAuth, (req, res) => {
-  db.editVital(req.params.id, {
+app.post('/admin/vitals/edit/:id', requireAuth, asyncHandler(async (req, res) => {
+  await db.editVital(req.params.id, {
     recorded_at: req.body.recorded_at || new Date().toISOString(),
     weight_grams: req.body.weight_grams,
     length_cm: req.body.length_cm,
@@ -393,93 +438,90 @@ app.post('/admin/vitals/edit/:id', requireAuth, (req, res) => {
     notes: req.body.notes,
   });
   res.redirect('/admin/vitals');
-});
+}));
 
-app.post('/admin/vitals/delete/:id', requireAuth, (req, res) => {
-  db.deleteVital(req.params.id);
+app.post('/admin/vitals/delete/:id', requireAuth, asyncHandler(async (req, res) => {
+  await db.deleteVital(req.params.id);
   res.redirect('/admin/vitals');
-});
+}));
 
 // Milestones
-app.get('/admin/milestones', requireAuth, (_req, res) => {
-  const milestones = db.getMilestonesByCategory();
+app.get('/admin/milestones', requireAuth, asyncHandler(async (_req, res) => {
+  const milestones = await db.getMilestonesByCategory();
   res.render('admin/milestones', { milestones });
-});
+}));
 
-app.post('/admin/milestones/achieve/:id', requireAuth, (req, res) => {
-  db.achieveMilestone(req.params.id, req.body.achieved_date);
+app.post('/admin/milestones/achieve/:id', requireAuth, asyncHandler(async (req, res) => {
+  await db.achieveMilestone(req.params.id, req.body.achieved_date);
   res.redirect('/admin/milestones');
-});
+}));
 
-app.post('/admin/milestones/unachieve/:id', requireAuth, (req, res) => {
-  db.unachieveMilestone(req.params.id);
+app.post('/admin/milestones/unachieve/:id', requireAuth, asyncHandler(async (req, res) => {
+  await db.unachieveMilestone(req.params.id);
   res.redirect('/admin/milestones');
-});
+}));
 
-app.post('/admin/milestones/new', requireAuth, (req, res) => {
+app.post('/admin/milestones/new', requireAuth, asyncHandler(async (req, res) => {
   const category = req.body.category;
   if (!category) return res.redirect('/admin/milestones');
-  db.createMilestone({
+  await db.createMilestone({
     category,
     title: req.body.title,
     description: req.body.description,
     sort_order: req.body.sort_order,
   });
   res.redirect('/admin/milestones');
-});
+}));
 
-app.post('/admin/milestones/delete/:id', requireAuth, (req, res) => {
-  db.deleteMilestone(req.params.id);
+app.post('/admin/milestones/delete/:id', requireAuth, asyncHandler(async (req, res) => {
+  await db.deleteMilestone(req.params.id);
   res.redirect('/admin/milestones');
-});
+}));
 
 // Settings
 app.get('/admin/settings', requireAuth, (_req, res) => {
   res.render('admin/settings');
 });
 
-app.post('/admin/settings', requireAuth, upload.single('site_logo'), (req, res) => {
+app.post('/admin/settings', requireAuth, upload.single('site_logo'), asyncHandler(async (req, res) => {
   const fields = ['baby_name', 'display_name', 'birth_date', 'birth_time', 'gestational_age_weeks', 'gestational_age_days', 'due_date', 'birth_weight_grams', 'nicu_name', 'theme'];
   for (const field of fields) {
-    if (req.body[field] !== undefined) db.setSetting(field, req.body[field]);
+    if (req.body[field] !== undefined) await db.setSetting(field, req.body[field]);
   }
   if (req.file) {
-    db.setSetting('site_logo', '/uploads/' + req.file.filename);
+    const logoUrl = await handleUpload(req.file);
+    await db.setSetting('site_logo', logoUrl);
   }
   res.redirect('/admin/settings');
-});
+}));
 
-// Reset logo to default
-app.post('/admin/settings/reset-logo', requireAuth, (_req, res) => {
-  db.setSetting('site_logo', '');
+app.post('/admin/settings/reset-logo', requireAuth, asyncHandler(async (_req, res) => {
+  await db.setSetting('site_logo', '');
   res.redirect('/admin/settings');
-});
+}));
 
 // ============ PUSH NOTIFICATIONS ============
 
-// Subscribe to push notifications
-app.post('/api/push/subscribe', requireViewer, (req, res) => {
+app.post('/api/push/subscribe', requireViewer, asyncHandler(async (req, res) => {
   const { endpoint, keys } = req.body;
   if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
     return res.status(400).json({ error: 'Invalid subscription' });
   }
-  db.savePushSubscription(endpoint, keys.p256dh, keys.auth);
+  await db.savePushSubscription(endpoint, keys.p256dh, keys.auth);
   res.json({ success: true });
-});
+}));
 
-// Unsubscribe from push notifications
-app.post('/api/push/unsubscribe', requireViewer, (req, res) => {
+app.post('/api/push/unsubscribe', requireViewer, asyncHandler(async (req, res) => {
   const { endpoint } = req.body;
   if (!endpoint) return res.status(400).json({ error: 'Missing endpoint' });
-  db.deletePushSubscription(endpoint);
+  await db.deletePushSubscription(endpoint);
   res.json({ success: true });
-});
+}));
 
-// Send push notification to all subscribers (called internally)
-function sendPushNotifications(title, body, url) {
+async function sendPushNotifications(title, body, url) {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
 
-  const subscriptions = db.getAllPushSubscriptions();
+  const subscriptions = await db.getAllPushSubscriptions();
   const payload = JSON.stringify({ title, body, url, tag: 'myla-update-' + Date.now() });
 
   for (const sub of subscriptions) {
@@ -487,23 +529,22 @@ function sendPushNotifications(title, body, url) {
       endpoint: sub.endpoint,
       keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth }
     };
-    webpush.sendNotification(pushSub, payload).catch((err) => {
+    webpush.sendNotification(pushSub, payload).catch(async (err) => {
       if (err.statusCode === 404 || err.statusCode === 410) {
-        // Subscription expired or unsubscribed — clean up
-        db.deletePushSubscription(sub.endpoint);
+        await db.deletePushSubscription(sub.endpoint).catch(() => {});
       }
     });
   }
 }
 
-// Dynamic manifest.json (uses settings for logo and theme color)
+// Dynamic manifest.json
 const THEME_COLORS = {
   rose: '#e44b6a', ocean: '#0ea5e9', lavender: '#a855f7', sunset: '#f97316', forest: '#10b981',
   'rose-light': '#e44b6a', 'ocean-light': '#0ea5e9', 'lavender-light': '#a855f7', 'sunset-light': '#f97316', 'forest-light': '#10b981',
 };
 
-app.get('/manifest.json', (_req, res) => {
-  const settings = db.getSettings();
+app.get('/manifest.json', asyncHandler(async (_req, res) => {
+  const settings = await db.getSettings();
   const logo = settings.site_logo || '/images/white-footprint.png';
   const name = settings.baby_name || 'Baby';
   const theme = settings.theme || 'rose';
@@ -523,6 +564,12 @@ app.get('/manifest.json', (_req, res) => {
       { src: logo, sizes: "512x512", type: "image/png", purpose: "any maskable" }
     ]
   });
+}));
+
+// Error handler
+app.use((err, _req, res, _next) => {
+  console.error('Server error:', err);
+  res.status(500).send('Internal Server Error');
 });
 
 // 404
@@ -530,6 +577,15 @@ app.use((_req, res) => {
   res.status(404).render('404');
 });
 
-app.listen(PORT, () => {
-  console.log(`Myla.fyi running on http://localhost:${PORT}`);
+// Async startup: init DB then listen
+async function main() {
+  await db.init();
+  app.listen(PORT, () => {
+    console.log(`Myla.fyi running on http://localhost:${PORT}`);
+  });
+}
+
+main().catch(err => {
+  console.error('Startup failed:', err);
+  process.exit(1);
 });
