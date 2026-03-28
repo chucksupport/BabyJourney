@@ -3,7 +3,7 @@
 <section class="hero">
   <div class="hero-inner">
     <p class="hero-label">Born at <%= settings.gestational_age_weeks %> weeks and <%= settings.gestational_age_days %> days</p>
-    <h1><%= settings.baby_name || 'Baby' %></h1>
+    <h1><%= settings.display_name || settings.baby_name || 'Baby' %></h1>
     <% const bd = new Date(settings.birth_date + 'T' + (settings.birth_time || '00:00') + ':00'); %>
     <p class="subtitle">Born <%= bd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) %> at <%= bd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) %></p>
 

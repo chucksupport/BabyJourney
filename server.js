@@ -439,7 +439,7 @@ app.get('/admin/settings', requireAuth, (_req, res) => {
 });
 
 app.post('/admin/settings', requireAuth, upload.single('site_logo'), (req, res) => {
-  const fields = ['baby_name', 'birth_date', 'birth_time', 'gestational_age_weeks', 'gestational_age_days', 'due_date', 'birth_weight_grams', 'nicu_name', 'theme'];
+  const fields = ['baby_name', 'display_name', 'birth_date', 'birth_time', 'gestational_age_weeks', 'gestational_age_days', 'due_date', 'birth_weight_grams', 'nicu_name', 'theme'];
   for (const field of fields) {
     if (req.body[field] !== undefined) db.setSetting(field, req.body[field]);
   }
