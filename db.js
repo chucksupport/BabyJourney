@@ -4,8 +4,8 @@ const fs = require('fs');
 
 // Turso in production, local SQLite file in dev
 // Set TURSO_DATABASE_URL=libsql://your-db.turso.io for Turso
-// Set TURSO_DATABASE_URL=file:./data/myla.db for local dev (default)
-const dbUrl = process.env.TURSO_DATABASE_URL || 'file:./data/myla.db';
+// Set TURSO_DATABASE_URL=file:./data/babyjourney.db for local dev (default)
+const dbUrl = process.env.TURSO_DATABASE_URL || 'file:./data/babyjourney.db';
 const authToken = process.env.TURSO_AUTH_TOKEN || undefined;
 
 // Ensure local data dir exists when using file: URL
@@ -175,14 +175,14 @@ async function init() {
   const settingsCount = Number((await client.execute('SELECT COUNT(*) as count FROM settings')).rows[0].count);
   if (settingsCount === 0) {
     const defaults = [
-      ['baby_name', 'Myla'],
-      ['birth_date', '2026-03-09'],
-      ['birth_time', '22:44'],
-      ['gestational_age_weeks', '24'],
-      ['gestational_age_days', '0'],
-      ['due_date', '2026-06-22'],
+      ['baby_name', 'Baby'],
+      ['birth_date', ''],
+      ['birth_time', ''],
+      ['gestational_age_weeks', ''],
+      ['gestational_age_days', ''],
+      ['due_date', ''],
       ['birth_weight_grams', ''],
-      ['nicu_name', 'Cleveland Clinic'],
+      ['nicu_name', ''],
     ];
     const stmts = defaults.map(([k, v]) => ({
       sql: 'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)',
