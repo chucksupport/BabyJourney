@@ -37,6 +37,10 @@
     <div class="form-group">
       <label for="photos">Photos (optional)</label>
       <input type="file" id="photos" name="photos" accept="image/*" multiple>
+      <div id="new-photo-preview" style="display:none; margin-top: 0.5rem;">
+        <p style="font-size: 0.8rem; color: var(--gray-400); margin-bottom: 0.5rem;">Drag to reorder. First photo is the cover.</p>
+        <div id="new-photo-grid" style="display: flex; flex-wrap: wrap; gap: 0.75rem;"></div>
+      </div>
       <% if (photos && photos.length > 0) { %>
         <p style="font-size: 0.8rem; color: var(--gray-400); margin-top: 0.5rem;">Drag to reorder. First photo is the cover.</p>
         <div id="photo-grid" class="current-photos" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem;">
@@ -89,8 +93,93 @@
   const progressText = document.getElementById('progress-text');
   const submitBtn = document.getElementById('submit-btn');
 
+  // New photo preview with drag-and-drop reordering
+  const newPhotoPreview = document.getElementById('new-photo-preview');
+  const newPhotoGrid = document.getElementById('new-photo-grid');
+  let orderedFiles = []; // tracks files in user's chosen order
+
+  photosInput.addEventListener('change', function() {
+    orderedFiles = Array.from(photosInput.files);
+    renderNewPhotoPreviews();
+  });
+
+  function renderNewPhotoPreviews() {
+    newPhotoGrid.innerHTML = '';
+    if (!orderedFiles.length) {
+      newPhotoPreview.style.display = 'none';
+      return;
+    }
+    newPhotoPreview.style.display = 'block';
+    orderedFiles.forEach(function(file, idx) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'photo-item';
+      wrapper.dataset.idx = idx;
+      wrapper.draggable = true;
+      wrapper.style.cssText = 'position: relative; cursor: grab;';
+
+      const img = document.createElement('img');
+      img.style.cssText = 'max-width: 150px; border-radius: 8px; pointer-events: none;';
+      img.alt = file.name;
+      const url = URL.createObjectURL(file);
+      img.src = url;
+      img.onload = function() { URL.revokeObjectURL(url); };
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.innerHTML = '&times;';
+      removeBtn.style.cssText = 'position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; line-height: 1;';
+      removeBtn.addEventListener('click', function() {
+        orderedFiles.splice(orderedFiles.indexOf(file), 1);
+        renderNewPhotoPreviews();
+      });
+
+      wrapper.appendChild(img);
+      wrapper.appendChild(removeBtn);
+      newPhotoGrid.appendChild(wrapper);
+    });
+  }
+
+  // Drag-and-drop for new photo previews
+  (function() {
+    let dragged = null;
+
+    newPhotoGrid.addEventListener('dragstart', function(e) {
+      dragged = e.target.closest('.photo-item');
+      if (dragged) dragged.style.opacity = '0.4';
+    });
+    newPhotoGrid.addEventListener('dragend', function() {
+      if (dragged) dragged.style.opacity = '1';
+      dragged = null;
+    });
+    newPhotoGrid.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      const target = e.target.closest('.photo-item');
+      if (target && target !== dragged) {
+        const items = [...newPhotoGrid.querySelectorAll('.photo-item')];
+        const tIdx = items.indexOf(target);
+        if (items.indexOf(dragged) < tIdx) {
+          newPhotoGrid.insertBefore(dragged, target.nextSibling);
+        } else {
+          newPhotoGrid.insertBefore(dragged, target);
+        }
+      }
+    });
+    newPhotoGrid.addEventListener('drop', function(e) {
+      e.preventDefault();
+      // Sync orderedFiles to match the new DOM order
+      const items = [...newPhotoGrid.querySelectorAll('.photo-item')];
+      const newOrder = items.map(function(el) {
+        return orderedFiles[parseInt(el.dataset.idx)];
+      });
+      orderedFiles = newOrder;
+      // Update data-idx to match new positions
+      items.forEach(function(el, i) { el.dataset.idx = i; });
+    });
+  })();
+
   form.addEventListener('submit', function(e) {
-    if (!photosInput.files || !photosInput.files.length) return;
+    const hasNewFiles = orderedFiles.length > 0;
+    if (!hasNewFiles && (!photosInput.files || !photosInput.files.length)) return;
     e.preventDefault();
 
     submitBtn.disabled = true;
@@ -119,10 +208,16 @@
       alert('Upload failed. Please try again.');
     });
 
-    xhr.send(new FormData(form));
+    // Build FormData with files in the user's chosen order
+    const fd = new FormData(form);
+    fd.delete('photos');
+    if (hasNewFiles) {
+      orderedFiles.forEach(function(file) { fd.append('photos', file); });
+    }
+    xhr.send(fd);
   });
 
-  // Drag-and-drop photo reordering
+  // Drag-and-drop photo reordering (existing server-side photos)
   const grid = document.getElementById('photo-grid');
   if (grid) {
     let dragged = null;
@@ -158,6 +253,7 @@
       });
     });
   }
+
 })();
 </script>
 <%- include('../partials/footer') %>
