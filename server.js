@@ -353,6 +353,7 @@ app.post('/admin/new', requireAuth, upload.array('photos', 20), asyncHandler(asy
     const photoPaths = await Promise.all(req.files.map(f => handleUpload(f)));
     await db.addUpdatePhotos(result.lastInsertRowid, photoPaths);
   }
+  await db.pinUpdate(result.lastInsertRowid);
   const snippet = content.substring(0, 100).replace(/\n/g, ' ') + (content.length > 100 ? '...' : '');
   sendPushNotifications(
     'New Update: ' + title,
@@ -388,6 +389,7 @@ app.post('/admin/edit/:id', requireAuth, upload.array('photos', 20), asyncHandle
     const photoPaths = await Promise.all(req.files.map(f => handleUpload(f)));
     await db.addUpdatePhotos(req.params.id, photoPaths);
   }
+  await db.pinUpdate(req.params.id);
   res.redirect('/admin');
 }));
 
