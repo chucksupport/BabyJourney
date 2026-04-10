@@ -1281,6 +1281,7 @@ nav {
 }
 
 .alert-error { background: var(--rose-50); color: var(--rose-400); }
+.alert-success { background: rgba(16, 185, 129, 0.12); color: #10b981; }
 
 /* ============ ADMIN ============ */
 .admin-header {

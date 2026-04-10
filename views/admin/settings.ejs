@@ -213,6 +213,38 @@
   <% if (settings.site_logo) { %>
     <form id="resetLogoForm" method="POST" action="/admin/settings/reset-logo" style="display: none;"></form>
   <% } %>
+
+  <hr style="border: none; border-top: 1px solid var(--card-border); margin: 2rem 0 1.5rem;">
+
+  <h2 style="font-family: 'Playfair Display', Georgia, serif; font-size: 1.4rem; color: var(--gray-900); margin-bottom: 0.5rem;">Change Passwords</h2>
+  <p style="color: var(--gray-400); font-size: 0.9rem; margin-bottom: 1rem;">
+    Update the admin or viewer password. Leave a field blank to keep it unchanged.
+  </p>
+
+  <% if (pwError) { %>
+    <div class="alert alert-error"><%= pwError %></div>
+  <% } %>
+  <% if (pwSaved) { %>
+    <div class="alert alert-success">Passwords updated.</div>
+  <% } %>
+
+  <form method="POST" action="/admin/password" class="editor-form" autocomplete="off">
+    <div class="form-group">
+      <label for="current_password">Current admin password <span style="color: var(--rose-400);">*</span></label>
+      <input type="password" id="current_password" name="current_password" required autocomplete="current-password">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="new_admin_password">New admin password</label>
+        <input type="password" id="new_admin_password" name="new_admin_password" minlength="8" autocomplete="new-password" placeholder="Leave blank to keep">
+      </div>
+      <div class="form-group">
+        <label for="new_viewer_password">New viewer password</label>
+        <input type="password" id="new_viewer_password" name="new_viewer_password" minlength="8" autocomplete="new-password" placeholder="Leave blank to keep">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Update passwords</button>
+  </form>
 </section>
 
 <%- include('../partials/footer') %>
