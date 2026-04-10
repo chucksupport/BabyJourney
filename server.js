@@ -3,8 +3,31 @@ const cookieSession = require('cookie-session');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcrypt');
 const webpush = require('web-push');
 const db = require('./db');
+
+// Password verification: prefer DB hash (set via admin settings UI), fall back
+// to env var for bootstrap. In non-production, allow 'admin'/'viewer' defaults
+// so `npm run dev` works with no env vars.
+async function verifyPassword(plain, type) {
+  if (!plain) return false;
+  const settings = await db.getSettings();
+  const hash = settings[type + '_password_hash'];
+  if (hash) {
+    try {
+      return await bcrypt.compare(plain, hash);
+    } catch (e) {
+      console.error('bcrypt compare error:', e.message);
+      return false;
+    }
+  }
+  const envKey = type === 'admin' ? 'ADMIN_PASSWORD' : 'VIEWER_PASSWORD';
+  const envValue = process.env[envKey];
+  if (envValue) return plain === envValue;
+  if (process.env.NODE_ENV !== 'production') return plain === type;
+  return false;
+}
 
 // Cloudinary setup (optional — falls back to local disk when not configured)
 const useCloudinary = !!process.env.CLOUDINARY_CLOUD_NAME;
@@ -198,21 +221,19 @@ app.get('/login', (req, res) => {
   res.render('login', { error: null });
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', asyncHandler(async (req, res) => {
   const { password } = req.body;
-  const viewerPassword = process.env.VIEWER_PASSWORD || 'viewer';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
-  if (password === adminPassword) {
+  if (await verifyPassword(password, 'admin')) {
     req.session.authenticated = true;
     req.session.viewer = true;
     return res.redirect('/');
   }
-  if (password === viewerPassword) {
+  if (await verifyPassword(password, 'viewer')) {
     req.session.viewer = true;
     return res.redirect('/');
   }
   res.render('login', { error: 'Incorrect password. Please try again.' });
-});
+}));
 
 // ============ PUBLIC ROUTES ============
 
@@ -279,15 +300,14 @@ app.get('/admin/login', (_req, res) => {
   res.render('admin/login', { error: null });
 });
 
-app.post('/admin/login', (req, res) => {
+app.post('/admin/login', asyncHandler(async (req, res) => {
   const { password } = req.body;
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
-  if (password === adminPassword) {
+  if (await verifyPassword(password, 'admin')) {
     req.session.authenticated = true;
     return res.redirect('/admin');
   }
   res.render('admin/login', { error: 'Incorrect password. Please try again.' });
-});
+}));
 
 app.get('/admin/logout', (req, res) => {
   req.session = null;
@@ -518,9 +538,55 @@ app.post('/admin/milestones/delete/:id', requireAuth, asyncHandler(async (req, r
 }));
 
 // Settings
-app.get('/admin/settings', requireAuth, (_req, res) => {
-  res.render('admin/settings');
+const PW_ERROR_MESSAGES = {
+  current_required: 'Current admin password is required.',
+  current_wrong: 'Current admin password is incorrect.',
+  nothing_to_change: 'Enter a new admin or viewer password.',
+  too_short_admin: 'New admin password must be at least 8 characters.',
+  too_short_viewer: 'New viewer password must be at least 8 characters.',
+  same_as_current: 'New admin password must be different from the current one.',
+};
+
+app.get('/admin/settings', requireAuth, (req, res) => {
+  res.render('admin/settings', {
+    pwError: PW_ERROR_MESSAGES[req.query.pwerror] || null,
+    pwSaved: req.query.pwsaved === '1',
+  });
 });
+
+app.post('/admin/password', requireAuth, asyncHandler(async (req, res) => {
+  const { current_password, new_admin_password, new_viewer_password } = req.body;
+  if (!current_password) {
+    return res.redirect('/admin/settings?pwerror=current_required');
+  }
+  const currentOk = await verifyPassword(current_password, 'admin');
+  if (!currentOk) {
+    return res.redirect('/admin/settings?pwerror=current_wrong');
+  }
+  const newAdmin = (new_admin_password || '').trim();
+  const newViewer = (new_viewer_password || '').trim();
+  if (!newAdmin && !newViewer) {
+    return res.redirect('/admin/settings?pwerror=nothing_to_change');
+  }
+  if (newAdmin && newAdmin.length < 8) {
+    return res.redirect('/admin/settings?pwerror=too_short_admin');
+  }
+  if (newViewer && newViewer.length < 8) {
+    return res.redirect('/admin/settings?pwerror=too_short_viewer');
+  }
+  if (newAdmin && newAdmin === current_password) {
+    return res.redirect('/admin/settings?pwerror=same_as_current');
+  }
+  if (newAdmin) {
+    const hash = await bcrypt.hash(newAdmin, 10);
+    await db.setSetting('admin_password_hash', hash);
+  }
+  if (newViewer) {
+    const hash = await bcrypt.hash(newViewer, 10);
+    await db.setSetting('viewer_password_hash', hash);
+  }
+  res.redirect('/admin/settings?pwsaved=1');
+}));
 
 app.post('/admin/settings', requireAuth, upload.single('site_logo'), asyncHandler(async (req, res) => {
   const fields = ['baby_name', 'display_name', 'birth_date', 'birth_time', 'gestational_age_weeks', 'gestational_age_days', 'due_date', 'birth_weight_grams', 'nicu_name', 'theme'];
