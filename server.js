@@ -304,6 +304,10 @@ app.post('/admin/login', asyncHandler(async (req, res) => {
   const { password } = req.body;
   if (await verifyPassword(password, 'admin')) {
     req.session.authenticated = true;
+    const settings = await db.getSettings();
+    if (settings.completed_initial_setup === '0') {
+      return res.redirect('/admin/settings?welcome=1');
+    }
     return res.redirect('/admin');
   }
   res.render('admin/login', { error: 'Incorrect password. Please try again.' });
@@ -551,6 +555,7 @@ app.get('/admin/settings', requireAuth, (req, res) => {
   res.render('admin/settings', {
     pwError: PW_ERROR_MESSAGES[req.query.pwerror] || null,
     pwSaved: req.query.pwsaved === '1',
+    welcome: req.query.welcome === '1',
   });
 });
 
@@ -600,6 +605,7 @@ app.post('/admin/settings', requireAuth, upload.single('site_logo'), asyncHandle
       await db.setSetting('site_logo', logoUrl);
     }
   }
+  await db.setSetting('completed_initial_setup', '1');
   res.redirect('/admin/settings');
 }));
 
