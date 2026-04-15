@@ -28,7 +28,7 @@
           </form>
           <% } else { %>
           <form method="POST" action="/admin/milestones/achieve/<%= m.id %>" style="display:inline; display:flex; align-items:center; gap:0.5rem;">
-            <input type="date" name="achieved_date" class="milestone-date-input" value="" style="padding:0.25rem 0.5rem; border-radius:6px; border:1px solid var(--gray-600); background:var(--gray-800); color:var(--gray-100); font-size:0.8rem;">
+            <input type="date" name="achieved_date" class="milestone-date-input" value="">
             <button type="submit" class="btn btn-small btn-primary">Achieved!</button>
           </form>
           <% } %>

@@ -5,6 +5,10 @@
 
   <h1>Settings</h1>
 
+  <% if (welcome) { %>
+    <div class="alert alert-success">Welcome! Take a moment to fill in your baby's details below. Save when you're done to finish setup.</div>
+  <% } %>
+
   <form method="POST" action="/admin/settings" class="editor-form" enctype="multipart/form-data">
     <div class="form-row">
       <div class="form-group">

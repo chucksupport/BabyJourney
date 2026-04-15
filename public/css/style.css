@@ -629,6 +629,23 @@ nav {
   margin-top: 0.25rem;
 }
 
+.milestone-date-input {
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--gray-200);
+  background: var(--gray-50);
+  color: var(--gray-800);
+  font-family: inherit;
+  font-size: 0.8rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.milestone-date-input:focus {
+  outline: none;
+  border-color: var(--rose-400);
+  box-shadow: 0 0 0 3px var(--rose-100);
+}
+
 /* ============ SYSTEMS DASHBOARD ============ */
 .systems-dashboard {
   margin-bottom: 2.5rem;
@@ -1202,6 +1219,11 @@ nav {
 .form-group input[type="number"],
 .form-group input[type="date"],
 .form-group input[type="datetime-local"],
+.form-group input[type="time"],
+.form-group input[type="email"],
+.form-group input[type="tel"],
+.form-group input[type="url"],
+.form-group input[type="search"],
 .form-group textarea,
 .form-group select {
   width: 100%;

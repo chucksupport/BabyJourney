@@ -176,6 +176,7 @@ async function init() {
   if (settingsCount === 0) {
     const defaults = [
       ['baby_name', 'Baby'],
+      ['completed_initial_setup', '0'],
       ['birth_date', ''],
       ['birth_time', ''],
       ['gestational_age_weeks', ''],
