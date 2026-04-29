@@ -43,7 +43,8 @@
       <div class="vital-icon-emoji">&#x2696;&#xFE0F;</div>
       <div class="vital-info">
         <% const totalOz = latestVitals.weight_grams / 28.3495; const lb = Math.floor(totalOz / 16); const oz = Math.round(totalOz - lb * 16); %>
-        <span class="vital-value"><%= lb %><small>lb</small> <%= oz %><small>oz</small></span>
+        <span class="vital-value"><%= latestVitals.weight_grams %><small>g</small></span>
+        <span class="vital-sub"><%= lb %><small>lb</small> <%= oz %><small>oz</small></span>
         <span class="vital-label">Weight</span>
       </div>
     </div>
